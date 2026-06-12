@@ -1,0 +1,14 @@
+{
+  "appId": "com.vijinew.webadmin",
+  "appName": "web-admin",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
+}

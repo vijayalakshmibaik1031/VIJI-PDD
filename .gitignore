@@ -1,0 +1,24 @@
+# Exclude mobile app — not part of the web project
+mobile/
+
+# Uploads folder
+.uploads/
+
+# Editor
+.vscode/
+
+# Old documentation files
+CHECKLIST.md
+COMPLETION_REPORT.md
+DESIGN.md
+MIGRATION_GUIDE.md
+MIGRATION_SUMMARY.md
+PROJECT_INDEX.md
+QUICK_START.md
+README_MIGRATION_COMPLETE.md
+RUN.md
+WORK_COMPLETED.md
+
+# OS
+.DS_Store
+Thumbs.db
