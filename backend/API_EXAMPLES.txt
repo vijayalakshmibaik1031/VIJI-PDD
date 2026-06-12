@@ -1,0 +1,174 @@
+// API USAGE EXAMPLES
+
+// ============================================
+// 1. EMPLOYEE REGISTRATION
+// ============================================
+POST http://localhost:5000/api/employees/register
+Content-Type: application/json
+
+{
+  "id": "emp001",
+  "name": "John Doe",
+  "password": "password123"
+}
+
+// ============================================
+// 2. EMPLOYEE LOGIN
+// ============================================
+POST http://localhost:5000/api/employees/login
+Content-Type: application/json
+
+{
+  "userId": "emp001",
+  "password": "password123"
+}
+
+// Response:
+{
+  "message": "Login successful",
+  "session": {
+    "role": "employee",
+    "userId": "emp001",
+    "name": "John Doe"
+  }
+}
+
+// ============================================
+// 3. CREATE COMPLAINT
+// ============================================
+POST http://localhost:5000/api/complaints
+Content-Type: application/json
+
+{
+  "id": "complaint_12345",
+  "employeeId": "emp001",
+  "employeeName": "John Doe",
+  "roomId": "101",
+  "category": "Electrical",
+  "description": "Light bulb not working",
+  "completionPhotoUri": null
+}
+
+// ============================================
+// 4. GET ALL COMPLAINTS
+// ============================================
+GET http://localhost:5000/api/complaints
+
+// ============================================
+// 5. GET EMPLOYEE COMPLAINTS
+// ============================================
+GET http://localhost:5000/api/complaints/employee/emp001
+
+// ============================================
+// 6. UPDATE COMPLAINT STATUS
+// ============================================
+PATCH http://localhost:5000/api/complaints/complaint_12345/status
+Content-Type: application/json
+
+{
+  "status": "in_progress"
+}
+
+// Status options: pending, in_progress, completed, rejected, escalated, acknowledged, merged_public
+
+// ============================================
+// 7. COMPLETE COMPLAINT
+// ============================================
+PATCH http://localhost:5000/api/complaints/complaint_12345/complete
+Content-Type: application/json
+
+{
+  "description": "Fixed the light bulb",
+  "photoUri": "https://example.com/photo.jpg"
+}
+
+// ============================================
+// 8. REJECT COMPLAINT
+// ============================================
+PATCH http://localhost:5000/api/complaints/complaint_12345/reject
+Content-Type: application/json
+
+{
+  "reason": "Invalid complaint"
+}
+
+// ============================================
+// 9. ESCALATE COMPLAINT
+// ============================================
+PATCH http://localhost:5000/api/complaints/complaint_12345/escalate
+Content-Type: application/json
+
+{
+  "reason": "Urgent issue needs immediate attention"
+}
+
+// ============================================
+// 10. CREATE MANAGER (Same for authorities)
+// ============================================
+POST http://localhost:5000/api/managers/register
+Content-Type: application/json
+
+{
+  "id": "mgr001",
+  "name": "Manager Name",
+  "password": "password123"
+}
+
+// ============================================
+// 11. MERGE COMPLAINTS
+// ============================================
+POST http://localhost:5000/api/merged-groups
+Content-Type: application/json
+
+{
+  "id": "merged_12345",
+  "roomId": "101",
+  "category": "Electrical",
+  "managerDescription": "All electrical issues combined",
+  "complaintIds": ["complaint_12345", "complaint_12346", "complaint_12347"]
+}
+
+// ============================================
+// JAVASCRIPT FETCH EXAMPLES
+// ============================================
+
+// Login
+async function loginEmployee(userId, password) {
+  const response = await fetch("http://localhost:5000/api/employees/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, password })
+  });
+  return response.json();
+}
+
+// Create complaint
+async function createComplaint(complaintData) {
+  const response = await fetch("http://localhost:5000/api/complaints", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(complaintData)
+  });
+  return response.json();
+}
+
+// Get complaints
+async function getComplaints() {
+  const response = await fetch("http://localhost:5000/api/complaints");
+  return response.json();
+}
+
+// ============================================
+// REACT NATIVE EXAMPLE (Use PC IP)
+// ============================================
+
+// Replace localhost with your PC IP (find with: ipconfig)
+const API_URL = "http://192.168.1.5:5000";
+
+fetch(`${API_URL}/api/employees/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId: "emp001", password: "password123" })
+})
+.then(res => res.json())
+.then(data => console.log(data));
