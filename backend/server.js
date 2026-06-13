@@ -1011,7 +1011,7 @@ app.patch("/api/merged-groups/:id/acknowledge", requireAuth, async (req, res) =>
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 (async () => {
   await initializeDatabase();
