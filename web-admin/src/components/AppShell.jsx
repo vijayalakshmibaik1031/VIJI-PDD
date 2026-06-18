@@ -109,6 +109,7 @@ function WebLayout({ title, links, session, logout }) {
               type="button"
               className="mt-2 flex items-center gap-1 rounded bg-slate-900 px-3 py-1 text-white"
               onClick={logout}
+              data-testid="logoutButton"
             >
               <LogOut size={14} />
               Logout
@@ -144,6 +145,7 @@ function NativeLayout({ title, links, session, logout }) {
             className="flex items-center gap-1 rounded bg-slate-900 px-3 py-1.5 text-xs text-white"
             onClick={logout}
             aria-label="Logout"
+            data-testid="logoutButton"
           >
             <LogOut size={13} />
             Logout

@@ -22,3 +22,11 @@ WORK_COMPLETED.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Appium test outputs
+appium-tests/node_modules/
+appium-tests/allure-results/
+appium-tests/reports/
+
+# Generated vulnerability report
+Vulnerability Test Results/*.xlsx
