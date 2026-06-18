@@ -1010,6 +1010,51 @@ app.patch("/api/merged-groups/:id/acknowledge", requireAuth, async (req, res) =>
   }
 });
 
+// ===== ADMIN ENDPOINTS =====
+app.post("/api/admin/cleanup-employees", requireAuth, async (req, res) => {
+  try {
+    // Only managers or authorities may perform this destructive operation
+    if (req.user.role !== "manager" && req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: only managers or authorities can perform cleanup" });
+    }
+
+    // Delete in dependency order to satisfy foreign key constraints:
+    // 1. re_complaints (no FK to employees, but logically depends on complaints)
+    const reComplaintsResult = await pool.query("DELETE FROM re_complaints");
+    // 2. merged_group_endorsements (FK → merged_groups)
+    const endorsementsResult = await pool.query("DELETE FROM merged_group_endorsements");
+    // 3. merged_groups
+    const mergedGroupsResult = await pool.query("DELETE FROM merged_groups");
+    // 4. complaints (FK → employees)
+    const complaintsResult = await pool.query("DELETE FROM complaints");
+    // 5. employees
+    const employeesResult = await pool.query("DELETE FROM employees");
+
+    console.log(
+      `[cleanup-employees] performed by ${req.user.userId} (${req.user.role}): ` +
+      `re_complaints=${reComplaintsResult.rowCount}, ` +
+      `merged_group_endorsements=${endorsementsResult.rowCount}, ` +
+      `merged_groups=${mergedGroupsResult.rowCount}, ` +
+      `complaints=${complaintsResult.rowCount}, ` +
+      `employees=${employeesResult.rowCount}`
+    );
+
+    res.json({
+      message: "Employee data cleaned up successfully",
+      deleted: {
+        re_complaints: reComplaintsResult.rowCount,
+        merged_group_endorsements: endorsementsResult.rowCount,
+        merged_groups: mergedGroupsResult.rowCount,
+        complaints: complaintsResult.rowCount,
+        employees: employeesResult.rowCount,
+      },
+    });
+  } catch (err) {
+    console.error("Cleanup error:", err.message);
+    res.status(500).json({ error: "Cleanup failed", details: err.message });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 8080;
 
