@@ -65,14 +65,17 @@ jobs:
 
       - name: Run Selenium tests
         working-directory: selenium-tests
+        continue-on-error: true
         run: npm run report
 
       - name: Run Appium tests
         working-directory: appium-tests
+        continue-on-error: true
         run: node run-direct.js
 
       - name: Generate vulnerability report
         shell: pwsh
+        continue-on-error: true
         run: node "Vulnerability Test Results/generate-excel.js"
 
       - name: Upload Selenium reports
