@@ -1,4 +1,4 @@
-name: Load Test
+name: Appium Tests
 
 on:
   push:
@@ -8,8 +8,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  load-test:
+  appium-test:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,9 +19,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm ci
-      - name: Run load test
-        run: npm run test:load
-        env:
-          NODE_ENV: test
+      - name: Install Appium test dependencies
+        working-directory: appium-tests
+        run: npm ci
+      - name: Run Appium tests
+        working-directory: appium-tests
+        run: npm run tests:appium
