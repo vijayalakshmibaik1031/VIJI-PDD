@@ -5,7 +5,7 @@
   "description": "Selenium E2E tests for FacilityDesk web-admin",
   "scripts": {
     "test": "node run-tests.js",
-    "test:headless": "set HEADLESS=true&& node run-tests.js",
+    "test:headless": "node run-tests.js",
     "report": "node run-tests.js"
   },
   "dependencies": {

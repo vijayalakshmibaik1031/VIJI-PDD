@@ -20,6 +20,8 @@ jobs:
       API_URL: http://127.0.0.1:5000
       APPIUM_PORT: 4725
       TIMEOUT_MS: 15000
+      DATABASE_PUBLIC_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
 
     steps:
       - name: Checkout repository
@@ -62,6 +64,10 @@ jobs:
           $frontend = Start-Process -FilePath "npx" -ArgumentList "vite preview --host 127.0.0.1 --port 5173 --strictPort" -WorkingDirectory $webPath -PassThru
 
           node -e "async function wait(url, label) { for (let i = 0; i < 60; i += 1) { try { const res = await fetch(url); if (res.ok) { console.log(label + ' ready'); return; } } catch (err) {} await new Promise((resolve) => setTimeout(resolve, 2000)); } throw new Error(label + ' did not become ready'); } (async () => { await wait('http://127.0.0.1:5000/', 'Backend'); await wait('http://127.0.0.1:5173/', 'Frontend'); })().catch((err) => { console.error(err.message); process.exit(1); });"
+
+      - name: Wait for services to be ready
+        run: npx wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 --timeout 300000
+        shell: bash
 
       - name: Run Appium tests
         working-directory: appium-tests

@@ -67,39 +67,18 @@ jobs:
 
           node -e "async function wait(url, label) { for (let i = 0; i < 60; i += 1) { try { const res = await fetch(url); if (res.ok) { console.log(label + ' ready'); return; } } catch (err) {} await new Promise((resolve) => setTimeout(resolve, 2000)); } throw new Error(label + ' did not become ready'); } (async () => { await wait('http://127.0.0.1:5000/', 'Backend'); await wait('http://127.0.0.1:5173/', 'Frontend'); })().catch((err) => { console.error(err.message); process.exit(1); });"
 
-      - name: Wait for database to be ready
-        shell: pwsh
-        run: |
-          $maxAttempts = 15
-          $attempt = 0
-          $ready = $false
-          while ($attempt -lt $maxAttempts -and -not $ready) {
-            try {
-              $response = Invoke-RestMethod -Uri "http://127.0.0.1:5000/test-db" -TimeoutSec 5 -ErrorAction Stop
-              if ($response.status -eq "connected") {
-                Write-Host "Database is ready!"
-                $ready = $true
-              } else {
-                Write-Host "Attempt $($attempt+1): DB status = $($response.status). Retrying..."
-              }
-            } catch {
-              Write-Host "Attempt $($attempt+1): DB not ready yet - $($_.Exception.Message). Retrying in 5s..."
-            }
-            if (-not $ready) { Start-Sleep -Seconds 5 }
-            $attempt++
-          }
-          if (-not $ready) {
-            Write-Host "Warning: Database did not become ready after $maxAttempts attempts. Tests may have reduced pass rate."
-          }
+      - name: Wait for services to be ready
+        run: npx wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 http://127.0.0.1:5000/test-db --timeout 300000
+        shell: bash
 
       - name: Run Selenium tests
         working-directory: selenium-tests
-        continue-on-error: true
+        env:
+          HEADLESS: "true"
         run: npm run report
 
       - name: Run Appium tests
         working-directory: appium-tests
-        continue-on-error: true
         run: node run-direct.js
 
       - name: Generate vulnerability report
