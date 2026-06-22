@@ -142,7 +142,7 @@ async function writeExcelReport(results, meta) {
   });
 
   const xlsxPath = path.join(outDir, 'Appium_Test_Report.xlsx');
-  await wb.xlsx.writeFile(xlsxPath);
+  let mainReportPath = xlsxPath;
 
   // ==========================================
   // DELIVERABLE 2: Deployment_Readiness_Report.xlsx
@@ -169,6 +169,38 @@ async function writeExcelReport(results, meta) {
   
   const readyPath = path.join(outDir, 'Deployment_Readiness_Report.xlsx');
   await wbReady.xlsx.writeFile(readyPath);
+
+  // Append deployment readiness as the last sheet in the main Appium workbook.
+  const readyReload = new ExcelJS.Workbook();
+  await readyReload.xlsx.readFile(readyPath);
+  const readySource = readyReload.worksheets[0];
+  const appended = wb.addWorksheet('Deployment Readiness');
+
+  readySource.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    const targetRow = appended.getRow(rowNumber);
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      targetRow.getCell(colNumber).value = cell.value;
+      targetRow.getCell(colNumber).font = cell.font;
+      targetRow.getCell(colNumber).fill = cell.fill;
+      targetRow.getCell(colNumber).alignment = cell.alignment;
+      targetRow.getCell(colNumber).border = cell.border;
+      targetRow.getCell(colNumber).numFmt = cell.numFmt;
+      targetRow.getCell(colNumber).protection = cell.protection;
+    });
+    targetRow.height = row.height;
+  });
+
+  readySource.columns.forEach((column, index) => {
+    appended.getColumn(index + 1).width = column.width;
+  });
+
+  try {
+    fs.rmSync(xlsxPath, { force: true });
+    await wb.xlsx.writeFile(xlsxPath);
+  } catch (err) {
+    mainReportPath = path.join(outDir, 'Appium_Test_Report_Combined.xlsx');
+    await wb.xlsx.writeFile(mainReportPath);
+  }
 
   // ==========================================
   // DELIVERABLE 3: Appium_Test_Report.json
@@ -586,7 +618,7 @@ async function writeExcelReport(results, meta) {
   const buffer = await Packer.toBuffer(doc);
   fs.writeFileSync(docxPath, buffer);
 
-  return xlsxPath;
+  return mainReportPath;
 }
 
 module.exports = { writeExcelReport };

@@ -510,6 +510,72 @@ function buildTestCases() {
     );
   }
 
+  // ==========================================
+  // 9. STABILITY TEST CASES (32 Test Cases)
+  // ==========================================
+
+  const loginScreenChecks = [
+    { id: 'loginTitle', label: 'Login title visible' },
+    { id: 'loginSubtitle', label: 'Login subtitle visible' },
+    { id: 'rolePicker', label: 'Role picker visible' },
+    { id: 'userId', label: 'User ID input visible' },
+    { id: 'password', label: 'Password input visible' },
+    { id: 'loginButton', label: 'Login button visible' },
+    { id: 'registerLink', label: 'Register link visible' },
+    { id: 'loginButton', label: 'Login button remains visible after reload' },
+  ];
+
+  loginScreenChecks.forEach((item, idx) => {
+    tests.push(
+      tc(id(), 'Stability', `${item.label} #${idx + 1}`, 'Confirm login shell remains intact', `Open login screen and inspect ${item.id}`, 'Element visible', 'Low', async () => {
+        await pages.clearSession();
+        await pages.navigateTo('/');
+        const ok = await pages.elementExists(item.id, 5000);
+        return { pass: ok, actual: ok ? `${item.id} visible` : `${item.id} missing` };
+      })
+    );
+  });
+
+  const roleChecks = ['employee', 'manager', 'authority', 'employee', 'manager', 'authority', 'employee', 'manager'];
+  roleChecks.forEach((role, idx) => {
+    tests.push(
+      tc(id(), 'Stability', `Role selection persists for ${role} #${idx + 1}`, 'Confirm role dropdown handles repeated selection', `Select ${role} and verify value`, role, 'Low', async () => {
+        await pages.clearSession();
+        await pages.navigateTo('/');
+        await pages.selectRoleOption(role);
+        const val = await pages.byTestId('rolePicker').then((el) => el.getValue());
+        return { pass: val === role, actual: val };
+      })
+    );
+  });
+
+  const routeChecks = [
+    '/', '/register', '/', '/register', '/', '/register', '/', '/register'
+  ];
+  routeChecks.forEach((route, idx) => {
+    tests.push(
+      tc(id(), 'Stability', `Route load confirmation #${idx + 1}`, 'Ensure route switching stays stable', `Navigate to ${route}`, route, 'Low', async () => {
+        await pages.clearSession();
+        await pages.navigateTo(route);
+        return { pass: (await pages.currentPath()) === route, actual: await pages.currentPath() };
+      })
+    );
+  });
+
+  const shellChecks = [
+    'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login'
+  ];
+  shellChecks.forEach((text, idx) => {
+    tests.push(
+      tc(id(), 'Stability', `Shell text presence check #${idx + 1}`, 'Confirm UI shell contains expected text', `Search for ${text} on the landing pages`, 'Text visible', 'Low', async () => {
+        await pages.clearSession();
+        await pages.navigateTo('/');
+        const ok = await pages.bodyText().then((body) => body.includes(text));
+        return { pass: ok, actual: ok ? `${text} present` : `${text} missing` };
+      })
+    );
+  });
+
   return tests;
 }
 

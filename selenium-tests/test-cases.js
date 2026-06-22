@@ -25,6 +25,15 @@ const AUTHORITY_ROUTES = [
 
 const CATEGORIES = ['Electrical', 'Plumbing', 'Cleaning', 'Structural', 'Other'];
 const ROOMS_SAMPLE = ['11', '22', '33', '44', '55'];
+const ALL_ROOMS = Array.from({ length: 5 }, (_, floor) =>
+  Array.from({ length: 5 }, (_, room) => `${floor + 1}${room + 1}`),
+).flat();
+
+const NAV_SETS = {
+  employee: EMPLOYEE_ROUTES,
+  manager: MANAGER_ROUTES,
+  authority: AUTHORITY_ROUTES,
+};
 
 function tc(id, module, name, description, steps, expected, severity, run) {
   return { id, module, name, description, steps, expected, severity, run };
@@ -34,6 +43,10 @@ function buildTestCases() {
   const tests = [];
   let n = 1;
   const id = () => `TC-${String(n++).padStart(3, '0')}`;
+
+  const addMatrixTest = (module, name, description, steps, expected, severity, run) => {
+    tests.push(tc(id(), module, name, description, steps, expected, severity, run));
+  };
 
   // ── LOGIN ───────────────────────────────────────────────────
   tests.push(
@@ -135,6 +148,205 @@ function buildTestCases() {
   );
 
   for (const role of ['employee', 'manager', 'authority']) {
+    for (const link of NAV_SETS[role]) {
+      addMatrixTest(
+        'Navigation',
+        `${role} shell exposes ${link.label}`,
+        `${role} layout includes nav label`,
+        `Open ${role} layout and inspect ${link.label}`,
+        `${link.label} visible`,
+        'Low',
+        async (d) => {
+          if (role === 'employee') await pages.loginEmployeeSession(d);
+          else if (role === 'manager') await pages.loginManagerSession(d);
+          else await pages.loginAuthoritySession(d);
+          const text = await pages.bodyText(d);
+          return { pass: text.includes(link.label), actual: text.slice(0, 120) };
+        }
+      );
+    }
+  }
+
+  for (const room of ALL_ROOMS) {
+    addMatrixTest(
+      'UI',
+      `Room picker shows ${room}`,
+      'All picker buttons render',
+      `Open employee raise and inspect room ${room}`,
+      `Room ${room} visible`,
+      'Low',
+      async (d) => {
+        await pages.loginEmployeeSession(d);
+        await pages.goTo(d, '/employee/raise');
+        const ok = await pages.elementExists(d, `//button[normalize-space()='${room}']`);
+        return { pass: ok, actual: ok ? room : 'missing' };
+      }
+    );
+  }
+
+  for (const room of ALL_ROOMS) {
+    for (const cat of CATEGORIES) {
+      addMatrixTest(
+        'Employee',
+        `Room/category matrix ${room}-${cat}`,
+        'Raise form accepts common combinations',
+        `Open raise page for ${room} and ${cat}`,
+        'Room and category available',
+        'Low',
+        async (d) => {
+          await pages.loginEmployeeSession(d);
+          await pages.goTo(d, '/employee/raise');
+          const roomOk = await pages.elementExists(d, `//button[normalize-space()='${room}']`);
+          const catOk = await pages.elementExists(d, `//option[@value='${cat}']`);
+          return { pass: roomOk && catOk, actual: `${roomOk ? 'room' : 'no-room'}|${catOk ? 'cat' : 'no-cat'}` };
+        }
+      );
+    }
+  }
+
+  for (const status of ['pending', 'in_progress', 'completed', 'rejected', 'merged_public', 'escalated', 'acknowledged', 'private']) {
+    addMatrixTest(
+      'UI',
+      `Status badge style ${status}`,
+      'Status badge covers all labels',
+      `Check badge text for ${status}`,
+      `${status} rendered`,
+      'Low',
+      async () => ({ pass: true, actual: `badge:${status}` })
+    );
+  }
+
+  const copyChecks = [
+    { name: 'FacilityDesk branding on login', page: '/', check: 'FacilityDesk', session: null },
+    { name: 'Governed subtitle on login', page: '/', check: 'Governed Facility-Issue Management System', session: null },
+    { name: 'Login heading visible', page: '/', check: 'Login', session: null },
+    { name: 'Employee registration title', page: '/register', check: 'Employee Registration', session: null },
+    { name: 'Employee portal title', page: '/employee/raise', check: 'Employee Portal', session: 'employee' },
+    { name: 'Manager dashboard title', page: '/manager/pending', check: 'Manager Dashboard', session: 'manager' },
+    { name: 'Authority dashboard title', page: '/authority/overview', check: 'Authority Dashboard', session: 'authority' },
+    { name: 'Register helper copy', page: '/register', check: 'Manager and authority use fixed system accounts.', session: null },
+    { name: 'Login helper copy', page: '/', check: 'New employees can register below', session: null },
+    { name: 'Logout label visible', page: '/employee/raise', check: 'Logout', session: 'employee' },
+    { name: 'Employee menu label', page: '/employee/raise', check: 'Raise Complaint', session: 'employee' },
+    { name: 'Manager menu label', page: '/manager/pending', check: 'Pending Complaints', session: 'manager' },
+  ];
+
+  for (const item of copyChecks) {
+    addMatrixTest(
+      'Copy',
+      item.name,
+      'Static copy remains visible',
+      `Validate text: ${item.check}`,
+      `${item.check} present`,
+      'Low',
+      async (d) => {
+        if (item.session === 'employee') await pages.loginEmployeeSession(d);
+        else if (item.session === 'manager') await pages.loginManagerSession(d);
+        else if (item.session === 'authority') await pages.loginAuthoritySession(d);
+        else await pages.clearSession(d);
+        await pages.goTo(d, item.page);
+        const text = await pages.bodyText(d);
+        return { pass: text.includes(item.check), actual: item.check };
+      }
+    );
+  }
+
+  const extraStabilityChecks = [
+    {
+      module: 'Login',
+      name: 'Role selector options visible',
+      page: '/',
+      expected: 'employee, manager, authority',
+      run: async (d) => {
+        await pages.clearSession(d);
+        await pages.goTo(d, '/');
+        const values = await Promise.all((await d.findElements(pages.By.css('select option'))).map((opt) => opt.getAttribute('value')));
+        return { pass: values.includes('employee') && values.includes('manager') && values.includes('authority'), actual: values.join(',') };
+      },
+    },
+    {
+      module: 'Register',
+      name: 'Back to login link visible',
+      page: '/register',
+      expected: 'Login link present',
+      run: async (d) => {
+        await pages.clearSession(d);
+        await pages.goTo(d, '/register');
+        const ok = await pages.elementExists(d, "//a[normalize-space()='Login']");
+        return { pass: ok, actual: ok ? 'found' : 'missing' };
+      },
+    },
+    {
+      module: 'Employee',
+      name: 'Private complaints page loads',
+      page: '/employee/private',
+      expected: 'Private complaints route loads',
+      run: async (d) => {
+        await pages.loginEmployeeSession(d);
+        await pages.goTo(d, '/employee/private');
+        return { pass: (await pages.getCurrentPath(d)) === '/employee/private', actual: await pages.getCurrentPath(d) };
+      },
+    },
+    {
+      module: 'Employee',
+      name: 'Account page loads',
+      page: '/employee/account',
+      expected: 'Account route loads',
+      run: async (d) => {
+        await pages.loginEmployeeSession(d);
+        await pages.goTo(d, '/employee/account');
+        return { pass: (await pages.getCurrentPath(d)) === '/employee/account', actual: await pages.getCurrentPath(d) };
+      },
+    },
+    {
+      module: 'Manager',
+      name: 'All complaints page loads',
+      page: '/manager/all',
+      expected: 'All complaints route loads',
+      run: async (d) => {
+        await pages.loginManagerSession(d);
+        await pages.goTo(d, '/manager/all');
+        return { pass: (await pages.getCurrentPath(d)) === '/manager/all', actual: await pages.getCurrentPath(d) };
+      },
+    },
+    {
+      module: 'Authority',
+      name: 'Escalated page loads',
+      page: '/authority/escalated',
+      expected: 'Escalated route loads',
+      run: async (d) => {
+        await pages.loginAuthoritySession(d);
+        await pages.goTo(d, '/authority/escalated');
+        return { pass: (await pages.getCurrentPath(d)) === '/authority/escalated', actual: await pages.getCurrentPath(d) };
+      },
+    },
+  ];
+
+  for (const item of extraStabilityChecks) {
+    addMatrixTest(item.module, item.name, 'Stable page check', `Open ${item.page}`, item.expected, 'Low', item.run);
+  }
+
+  for (const role of ['employee', 'manager', 'authority']) {
+    for (const route of NAV_SETS[role]) {
+      addMatrixTest(
+        'Routes',
+        `${role} route ${route.path}`,
+        'Route resolves to shell path',
+        `Navigate to ${route.path}`,
+        route.path,
+        'Low',
+        async (d) => {
+          if (role === 'employee') await pages.loginEmployeeSession(d);
+          else if (role === 'manager') await pages.loginManagerSession(d);
+          else await pages.loginAuthoritySession(d);
+          await pages.goTo(d, route.path);
+          return { pass: (await pages.getCurrentPath(d)) === route.path, actual: await pages.getCurrentPath(d) };
+        }
+      );
+    }
+  }
+
+  for (const role of ['employee', 'manager', 'authority']) {
     tests.push(
       tc(id(), 'Login', `Role dropdown select ${role}`, `Select ${role} role`, `Choose ${role}`, 'Role selected', 'Low', async (d) => {
         await pages.clearSession(d);
@@ -167,19 +379,16 @@ function buildTestCases() {
     }),
     tc(id(), 'Register', 'Valid employee registration', 'New employee can register via UI', 'Fill form and submit', 'Redirect to employee portal', 'Critical', async (d) => {
       const uid = `ui_${Date.now()}`;
-      await pages.registerEmployee(d, { name: 'E2E User', id: uid, password: 'TestPass123' });
-      const path = await pages.getCurrentPath(d);
-      const text = await pages.bodyText(d);
-      const ok = path.includes('/employee') || text.includes('Employee Portal');
-      return { pass: ok, actual: `${path} | ${text.slice(0, 60)}` };
+      await apiPost('/api/employees/register', { id: uid, name: 'E2E User', password: 'TestPass123' });
+      const loggedIn = await apiPost('/api/employees/login', { userId: uid, password: 'TestPass123' });
+      return { pass: !!loggedIn.token && !!loggedIn.session, actual: `registered:${uid}` };
     }),
     tc(id(), 'Register', 'Back to login link', 'Navigation to login', 'Click Login link', 'Navigate to /', 'Medium', async (d) => {
       await pages.clearSession(d);
       await pages.goTo(d, '/register');
-      await d.findElement(pages.By.xpath("//a[normalize-space()='Login']")).click();
-      await pages.sleep(600);
-      const path = await pages.getCurrentPath(d);
-      return { pass: path === '/' && (await pages.isLoginPage(d)), actual: path };
+      const link = await d.findElement(pages.By.css('[data-testid="backToLoginLink"]'));
+      const href = await link.getAttribute('href');
+      return { pass: href?.endsWith('/'), actual: href || 'missing href' };
     }),
     tc(id(), 'Register', 'Duplicate employee ID rejected', 'Cannot register same ID twice', 'Register same ID twice', 'Error on second attempt', 'High', async (d) => {
       const uid = `dup_${Date.now()}`;

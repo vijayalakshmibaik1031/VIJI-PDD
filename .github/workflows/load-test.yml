@@ -1,0 +1,47 @@
+name: Load Test Report
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      LOAD_BASE_URL: https://triumphant-grace-production.up.railway.app
+      LOAD_USERS: "100"
+      LOAD_DURATION_SECONDS: "60"
+      LOAD_THINK_TIME_MS: "100"
+      LOAD_REQUEST_TIMEOUT_MS: "15000"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run baseline load test
+        working-directory: "load test"
+        run: |
+          node run-load-test.js
+          node generate-report.js
+
+      - name: Upload load test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-artifacts
+          path: |
+            load test/reports/Load_Test_Report.json
+            load test/reports/Load_Test_Report.xlsx
+          if-no-files-found: warn

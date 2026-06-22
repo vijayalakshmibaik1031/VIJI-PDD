@@ -32,6 +32,14 @@ async function run() {
   const startAll = Date.now();
   let driver = null;
 
+  async function getDriver() {
+    if (!driver) {
+      driver = await createDriver();
+      await driver.manage().setTimeouts({ implicit: 3000, pageLoad: 30000 });
+    }
+    return driver;
+  }
+
   for (let i = 0; i < tests.length; i++) {
     const t = tests[i];
     const started = Date.now();
@@ -44,12 +52,8 @@ async function run() {
     try {
       const needsBrowser = typeof t.run === 'function' && t.run.length > 0;
       if (needsBrowser) {
-        if (driver) {
-          try { await driver.quit(); } catch {}
-        }
-        driver = await createDriver();
-        await driver.manage().setTimeouts({ implicit: 3000, pageLoad: 30000 });
-        const out = await t.run(driver);
+        const browser = await getDriver();
+        const out = await t.run(browser);
         status = out.pass ? 'PASS' : 'FAIL';
         actual = out.actual || '';
         if (out.skip) status = 'SKIP';
@@ -62,10 +66,6 @@ async function run() {
       status = 'FAIL';
       actual = err.message;
       notes = err.stack ? err.stack.split('\n')[0] : '';
-      if (driver) {
-        try { await driver.quit(); } catch {}
-        driver = null;
-      }
     }
 
     const durationMs = Date.now() - started;

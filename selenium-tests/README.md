@@ -50,7 +50,7 @@ cd selenium-tests && set HEADLESS=true&& node run-tests.js
 | `HEADLESS` | `false` | Set `true` for headless Chrome |
 | `TIMEOUT_MS` | `12000` | Element wait timeout |
 
-## Test coverage (104 cases)
+## Test coverage (304 cases)
 
 - Login / Register / role validation
 - Employee, Manager, Authority portal navigation

@@ -7,6 +7,10 @@ const {
   seedBrowserSession,
 } = require('./api-setup');
 
+let cachedEmployeeSession = null;
+let cachedManagerSession = null;
+let cachedAuthoritySession = null;
+
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -70,20 +74,20 @@ async function loginAs(driver, role, userId, password) {
 }
 
 async function loginEmployeeSession(driver) {
-  const creds = await registerAndLoginEmployee();
+  const creds = cachedEmployeeSession || (cachedEmployeeSession = await registerAndLoginEmployee());
   await seedBrowserSession(driver, creds.token, creds.session);
   await goTo(driver, '/employee/raise');
   return creds;
 }
 
 async function loginManagerSession(driver) {
-  const creds = await loginManagerViaApi();
+  const creds = cachedManagerSession || (cachedManagerSession = await loginManagerViaApi());
   await seedBrowserSession(driver, creds.token, creds.session);
   await goTo(driver, '/manager/pending');
 }
 
 async function loginAuthoritySession(driver) {
-  const creds = await loginAuthorityViaApi();
+  const creds = cachedAuthoritySession || (cachedAuthoritySession = await loginAuthorityViaApi());
   await seedBrowserSession(driver, creds.token, creds.session);
   await goTo(driver, '/authority/overview');
 }
