@@ -92,7 +92,6 @@ jobs:
             curl -s http://127.0.0.1:5000/test-db && break || sleep 2
           done
           echo "All services ready"
-
       - name: Wait for services to be ready
         run: npx wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 --timeout 300000
         shell: bash
