@@ -28,7 +28,16 @@ env:
   NODE_VERSION: '18'
   HEADLESS: 'true'
   BROWSER: 'chrome'
-  BASE_URL: 'http://localhost:3000'
+  BASE_URL: 'http://127.0.0.1:5173'
+  API_URL: 'http://127.0.0.1:5000'
+  VITE_API_URL: 'http://127.0.0.1:5000/api'
+  PORT: '5000'
+  HOST: '0.0.0.0'
+  PGHOST: '127.0.0.1'
+  PGPORT: '5432'
+  PGUSER: 'facilitydesk'
+  PGPASSWORD: 'facilitydesk'
+  PGDATABASE: 'facilitydesk'
 
 jobs:
   setup:
@@ -62,76 +71,8 @@ jobs:
           echo "Headless Mode: ${{ env.HEADLESS }}"
           echo "Browser: ${{ env.BROWSER }}"
 
-  build-backend:
-    needs: setup
-    runs-on: ubuntu-latest
-    name: Build Backend
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
-        with:
-          path: backend/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('backend/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      
-      - name: Install backend dependencies
-        run: |
-          cd backend
-          npm install --production
-      
-      - name: Start backend server
-        run: |
-          cd backend
-          npm start &
-          sleep 10
-          curl -f http://localhost:3001 || echo "Backend not ready yet"
-        env:
-          NODE_ENV: test
-
-  setup-database:
-    needs: setup
-    runs-on: ubuntu-latest
-    name: Setup Test Database
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: viji_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Wait for PostgreSQL
-        run: |
-          until pg_isready -h localhost -p 5432; do
-            echo 'Waiting for PostgreSQL...'
-            sleep 1
-          done
-      
-      - name: Initialize test database
-        run: |
-          PGPASSWORD=testpass psql -h localhost -U testuser -d viji_test -f ./backend/database/init.sql
-
   test-selenium:
-    needs: [setup, build-backend, setup-database]
+    needs: setup
     runs-on: ubuntu-latest
     name: Run Selenium Tests (${{ matrix.test-group }})
     strategy:
@@ -139,18 +80,18 @@ jobs:
       matrix: ${{ fromJson(needs.setup.outputs.test-matrix) }}
     services:
       postgres:
-        image: postgres:14
+        image: postgres:16
         env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: viji_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          POSTGRES_USER: facilitydesk
+          POSTGRES_PASSWORD: facilitydesk
+          POSTGRES_DB: facilitydesk
         ports:
           - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U facilitydesk -d facilitydesk"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -175,24 +116,40 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
       
-      - name: Start web application
+      - name: Start backend and web preview
+        shell: bash
         run: |
+          # Install backend dependencies & start backend
+          cd backend
+          npm install
+          nohup node server.js > ../backend.log 2>&1 &
+          cd ..
+
+          # Install frontend dependencies, build & preview web-admin
           cd web-admin
           npm install
           npm run build
-          npm start &
-          sleep 15
-      
-      - name: Start backend server
-        run: |
-          cd backend
-          npm install --production
-          npm start &
-          sleep 10
+          nohup npm run preview -- --host 127.0.0.1 --port 5173 --strictPort > ../frontend.log 2>&1 &
+          cd ..
       
       - name: Wait for services
+        shell: bash
         run: |
-          timeout 60 bash -c 'while [[ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)" != "200" ]]; do echo "Waiting..."; sleep 5; done'
+          echo "Waiting for backend, frontend and DB..."
+          for i in {1..30}; do
+            curl -s http://127.0.0.1:5000/ && break || sleep 2
+          done
+          for i in {1..30}; do
+            curl -s http://127.0.0.1:5173/ && break || sleep 2
+          done
+          for i in {1..30}; do
+            curl -s http://127.0.0.1:5000/test-db && break || sleep 2
+          done
+          echo "All services ready"
+      
+      - name: Wait for services to be ready
+        run: npx wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 --timeout 300000
+        shell: bash
       
       - name: Build Selenium tests
         run: |

@@ -80,8 +80,9 @@ const pool = new Pool(poolConfig);
 // Seed manager and authority with hashed passwords (idempotent — safe to run every startup)
 async function seedStaticAccounts() {
   const accounts = [
-    { table: "managers",   id: "manager", name: "manager",   plainPassword: "man123"  },
-    { table: "authorities", id: "auth",   name: "auth",      plainPassword: "auth123" },
+    { table: "managers",    id: "manager", name: "manager",    plainPassword: "man123"      },
+    { table: "authorities", id: "auth",    name: "auth",       plainPassword: "auth123"     },
+    { table: "employees",   id: "emp001",  name: "Employee 1", plainPassword: "Test@123456" },
   ];
 
   for (const acc of accounts) {
