@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.viji.automation</groupId>
+    <artifactId>selenium-test-automation</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>VIJI QA Automation - Selenium Tests</name>
+    <description>350+ Selenium test cases for VIJI Complaint Management System</description>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Selenium and WebDriver versions -->
+        <selenium.version>4.15.0</selenium.version>
+        <webdrivermanager.version>5.6.2</webdrivermanager.version>
+        
+        <!-- Testing frameworks -->
+        <testng.version>7.8.1</testng.version>
+        <junit.version>4.13.2</junit.version>
+        
+        <!-- Reporting -->
+        <extent-report.version>5.1.1</extent-report.version>
+        
+        <!-- Utilities -->
+        <commons-io.version>2.13.0</commons-io.version>
+        <commons-lang3.version>3.13.0</commons-lang3.version>
+        <json.version>20230227</json.version>
+        <log4j.version>2.20.0</log4j.version>
+        
+        <!-- Maven plugins -->
+        <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
+        <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    </properties>
+
+    <dependencies>
+        <!-- Selenium WebDriver -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <!-- WebDriver Manager - Automatic driver management -->
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>${webdrivermanager.version}</version>
+        </dependency>
+
+        <!-- TestNG - Test framework -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit - Additional testing -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Extent Reports - Test reporting -->
+        <dependency>
+            <groupId>com.aventstack</groupId>
+            <artifactId>extentreports</artifactId>
+            <version>${extent-report.version}</version>
+        </dependency>
+
+        <!-- Apache Commons -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons-io.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+
+        <!-- JSON parsing -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${json.version}</version>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Surefire Plugin - Test execution -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                    </suiteXmlFiles>
+                    <systemPropertyVariables>
+                        <headless>${headless}</headless>
+                        <browser>${browser}</browser>
+                        <baseURL>${baseURL}</baseURL>
+                    </systemPropertyVariables>
+                    <parallel>methods</parallel>
+                    <threadCount>4</threadCount>
+                    <reuseForks>true</reuseForks>
+                    <argLine>-Xmx1024m -XX:MaxPermSize=256m</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Failsafe Plugin - Integration tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+
+            <!-- Shade Plugin - Create uber JAR if needed -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Local execution profile -->
+        <profile>
+            <id>local</id>
+            <properties>
+                <headless>false</headless>
+                <browser>chrome</browser>
+                <baseURL>http://localhost:3000</baseURL>
+            </properties>
+        </profile>
+
+        <!-- Headless profile for CI/CD -->
+        <profile>
+            <id>headless</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <headless>true</headless>
+                <browser>chrome</browser>
+                <baseURL>http://localhost:3000</baseURL>
+            </properties>
+        </profile>
+
+        <!-- GitHub Actions profile -->
+        <profile>
+            <id>github-actions</id>
+            <properties>
+                <headless>true</headless>
+                <browser>chrome</browser>
+                <baseURL>http://localhost:3000</baseURL>
+            </properties>
+        </profile>
+
+        <!-- Firefox profile -->
+        <profile>
+            <id>firefox</id>
+            <properties>
+                <headless>false</headless>
+                <browser>firefox</browser>
+                <baseURL>http://localhost:3000</baseURL>
+            </properties>
+        </profile>
+
+        <!-- Smoke tests only -->
+        <profile>
+            <id>smoke</id>
+            <properties>
+                <groups>smoke</groups>
+            </properties>
+        </profile>
+
+        <!-- Security tests only -->
+        <profile>
+            <id>security</id>
+            <properties>
+                <groups>security</groups>
+            </properties>
+        </profile>
+
+        <!-- Performance tests only -->
+        <profile>
+            <id>performance</id>
+            <properties>
+                <groups>performance</groups>
+            </properties>
+        </profile>
+    </profiles>
+</project>
