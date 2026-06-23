@@ -54,6 +54,14 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Install vulnerability report dependencies
+        working-directory: "Vulnerability Test Results"
+        run: npm install
+
+      - name: Generate vulnerability report
+        working-directory: "Vulnerability Test Results"
+        run: node generate-excel.js
+
       - name: Start backend server
         shell: bash
         run: |
@@ -78,14 +86,6 @@ jobs:
         working-directory: backend
         run: |
           ./test-integration.ps1
-
-      - name: Install vulnerability report dependencies
-        working-directory: "Vulnerability Test Results"
-        run: npm install
-
-      - name: Generate vulnerability report
-        working-directory: "Vulnerability Test Results"
-        run: node generate-excel.js
 
       - name: Upload Backend Reports
         if: always()
