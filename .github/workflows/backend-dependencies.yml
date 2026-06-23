@@ -78,3 +78,21 @@ jobs:
         working-directory: backend
         run: |
           ./test-integration.ps1
+
+      - name: Install vulnerability report dependencies
+        working-directory: "Vulnerability Test Results"
+        run: npm install
+
+      - name: Generate vulnerability report
+        working-directory: "Vulnerability Test Results"
+        run: node generate-excel.js
+
+      - name: Upload Backend Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            selenium_test_cases_350plus.xlsx
+            Vulnerability Test Results/Vulnerability_Test_Results_Report.xlsx
+          if-no-files-found: warn
