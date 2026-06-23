@@ -3,6 +3,18 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
+      // Centered container and small breakpoint for tighter layouts
+      container: {
+        center: true,
+        padding: {
+          DEFAULT: '1rem',
+          sm: '1.5rem',
+          lg: '2rem',
+        },
+      },
+      screens: {
+        xs: '480px',
+      },
       colors: {
         // Primary - Indigo
         primary: {
@@ -30,6 +42,17 @@ module.exports = {
           800: '#1E293B',
           900: '#0F172A',
         },
+        // Premium glass & muted accents for landing/cards
+        glass: {
+          100: 'rgba(255,255,255,0.06)',
+          200: 'rgba(255,255,255,0.04)',
+          300: 'rgba(255,255,255,0.02)',
+        },
+        muted: {
+          100: '#F3F4F6',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+        },
         // Status Colors
         success: '#10B981',
         warning: '#F59E0B',
@@ -40,6 +63,10 @@ module.exports = {
           violet: '#8B5CF6',
           pink: '#EC4899',
         },
+      },
+      backgroundImage: {
+        'hero-gradient': 'linear-gradient(135deg, rgba(99,102,241,0.95) 0%, rgba(139,92,246,0.85) 50%, rgba(236,72,153,0.85) 100%)',
+        'card-gradient': 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))',
       },
       fontFamily: {
         sans: [

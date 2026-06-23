@@ -14,7 +14,7 @@ function buildTestCases() {
   // ==========================================
   // 1. FUNCTIONAL TEST CASES (120 Test Cases)
   // ==========================================
-  
+
   // App Launch (2 cases)
   tests.push(
     tc(id(), 'Functional', 'App launches successfully', 'Verify Android app starts', 'Launch APK', 'Activity returned', 'Critical', async () => {
@@ -242,7 +242,7 @@ function buildTestCases() {
   // ==========================================
   // 2. UI/UX TEST CASES (30 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'UI/UX', 'Header font style and weight', 'Title typography check', 'Inspect title styling', 'Correct font attributes', 'Low', async () => {
       await pages.clearSession();
@@ -300,7 +300,7 @@ function buildTestCases() {
   // ==========================================
   // 3. VALIDATION TEST CASES (30 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'Validation', 'Empty User ID field validation', 'Submit empty username', 'Empty username field submit', 'Validation active', 'Medium', async () => {
       await pages.clearSession();
@@ -343,7 +343,7 @@ function buildTestCases() {
   // ==========================================
   // 4. API INTEGRATION TEST CASES (20 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'API Integration', 'Backend API is reachable and healthy', 'Verify API root endpoint', 'GET /', 'status success', 'Critical', async () => {
       const res = await fetch(`${config.apiUrl}/`);
@@ -382,7 +382,7 @@ function buildTestCases() {
   // ==========================================
   // 5. NAVIGATION TEST CASES (20 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'Navigation', 'Unknown route redirects back to login page', 'Catch-all route verification', 'Open /does-not-exist-xyz', 'Redirect to /', 'Medium', async () => {
       await pages.clearSession();
@@ -408,7 +408,7 @@ function buildTestCases() {
   // ==========================================
   // 6. SECURITY TEST CASES (20 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'Security', 'SQL injection attack on login User ID field', 'Login resists SQLi inputs', 'Submit SQL injection string', 'Login rejected', 'High', async () => {
       await pages.loginAs('manager', "' OR 1=1--", 'x');
@@ -444,7 +444,7 @@ function buildTestCases() {
   // ==========================================
   // 7. ERROR HANDLING TEST CASES (20 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'Error Handling', 'Invalid manager password error feedback', 'Error is returned on wrong password', 'Login manager wrong password', 'Rejected', 'High', async () => {
       await pages.loginAs('manager', 'manager', 'wrongpass');
@@ -482,7 +482,7 @@ function buildTestCases() {
   // ==========================================
   // 8. PERFORMANCE TEST CASES (10 Test Cases)
   // ==========================================
-  
+
   tests.push(
     tc(id(), 'Performance', 'Root API endpoint response latency check', 'Measure root response time', 'GET / latency query', 'Latency < 1000ms', 'Medium', async () => {
       const start = Date.now();

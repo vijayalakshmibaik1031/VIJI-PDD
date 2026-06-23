@@ -4,9 +4,9 @@ const config = require('./config');
 
 // ─── Override context helper before loading test-cases ───────────────────────
 const contextHelper = require('./helpers/context');
-contextHelper.sleep = async () => {};
+contextHelper.sleep = async () => { };
 contextHelper.switchToWebView = async () => 'WEBVIEW_mock';
-contextHelper.switchToNative = async () => {};
+contextHelper.switchToNative = async () => { };
 
 // ─── Force API URL to local backend ──────────────────────────────────────────
 config.apiUrl = 'http://localhost:5000';
@@ -36,10 +36,10 @@ function makeMockElement(selector) {
     getSize: async () => ({ width: 320, height: 48 }),
     getLocation: async () => ({ x: 40, y: 120 }),
     getAttribute: async () => 'mock_attr',
-    setValue: async () => {},
-    clearValue: async () => {},
-    click: async () => {},
-    selectByAttribute: async () => {},
+    setValue: async () => { },
+    clearValue: async () => { },
+    click: async () => { },
+    selectByAttribute: async () => { },
     waitForExist: async () => true,
     waitForDisplayed: async () => true,
     isDisplayed: async () => true,
@@ -98,17 +98,17 @@ global.browser = {
     return null;
   },
   getWindowHandles: async () => ['window_1'],
-  switchToWindow: async () => {},
+  switchToWindow: async () => { },
   getUrl: async () => `http://localhost${_currentPath}`,
 };
 
 global.driver = {
   getContexts: async () => ['NATIVE_APP', 'WEBVIEW_com.vijinew.webadmin'],
-  switchContext: async () => {},
+  switchContext: async () => { },
   getCurrentActivity: async () => 'com.vijinew.webadmin.MainActivity',
-  terminateApp: async () => {},
-  activateApp: async () => {},
-  execute: async () => {},
+  terminateApp: async () => { },
+  activateApp: async () => { },
+  execute: async () => { },
 };
 
 // ─── Now load test-cases (safe — all globals are defined) ────────────────────
@@ -147,9 +147,9 @@ pages.bodyText = async () =>
 
 pages.elementExists = async () => true;
 pages.xpathExists = async () => true;
-pages.xpathClick = async () => {};
-pages.xpathSetValue = async () => {};
-pages.selectRoleOption = async () => {};
+pages.xpathClick = async () => { };
+pages.xpathSetValue = async () => { };
+pages.selectRoleOption = async () => { };
 pages.byTestId = async (id) => makeMockElement(`[data-testid="${id}"]`);
 
 pages.loginAs = async (role, userId, password) => {
@@ -194,7 +194,7 @@ pages.raiseComplaint = async ({ room, category, description }) => {
 // LoginPage / RegisterPage / AppShellPage mock patches
 if (pages.LoginPage) {
   pages.LoginPage.waitForIsShown = async () => true;
-  pages.LoginPage.login = async () => {};
+  pages.LoginPage.login = async () => { };
 }
 if (pages.RegisterPage) {
   pages.RegisterPage.openFromLogin = async () => { _currentPath = '/register'; };
@@ -270,7 +270,7 @@ async function main() {
       try {
         const ssPath = path.join(screenshotsDir, `${tc.id}.png`);
         await global.browser.saveScreenshot(ssPath);
-      } catch {}
+      } catch { }
     }
 
     const durationMs = Date.now() - started;

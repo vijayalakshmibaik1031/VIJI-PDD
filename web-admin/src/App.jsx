@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Landing from './pages/Landing';
+import GetStarted from './pages/GetStarted';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import EmployeeLayout from './pages/employee/EmployeeLayout';
@@ -21,7 +23,7 @@ import AuthorityEscalated from './pages/authority/AuthorityEscalated';
 
 function HomeRedirect() {
   const { session } = useAuth();
-  if (!session) return <Login />;
+  if (!session) return <Landing />;
   if (session.role === 'employee') return <Navigate to="/employee/raise" replace />;
   else if (session.role === 'manager') return <Navigate to="/manager/pending" replace />;
   else return <Navigate to="/authority/overview" replace />;
@@ -31,8 +33,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/get-started" element={<GetStarted />} />
+        <Route path="/login/:role" element={<Login />} />
+        <Route path="/login" element={<Login />} />
 
         <Route
           path="/employee"

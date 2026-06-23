@@ -555,4 +555,148 @@
   }
 }
 
+/* ─── Premium Dark Theme Dashboard Overrides ─── */
+.app-dark-theme {
+  background-color: #020617 !important; /* Deep space dark */
+  color: #f8fafc !important;
+}
+
+.app-dark-theme .bg-white {
+  background-color: rgba(30, 41, 59, 0.45) !important; /* Slate glass */
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.app-dark-theme .bg-slate-100 {
+  background-color: #090d16 !important; /* Layout bg */
+}
+
+.app-dark-theme .bg-slate-50 {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.app-dark-theme .text-slate-800,
+.app-dark-theme .text-slate-700 {
+  color: #f1f5f9 !important; /* Slate light */
+}
+
+.app-dark-theme .text-slate-600,
+.app-dark-theme .text-slate-500 {
+  color: #94a3b8 !important; /* Slate muted */
+}
+
+.app-dark-theme .border,
+.app-dark-theme .border-slate-100,
+.app-dark-theme .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.app-dark-theme input,
+.app-dark-theme select,
+.app-dark-theme textarea {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.app-dark-theme input:focus,
+.app-dark-theme select:focus,
+.app-dark-theme textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Primary actions */
+.app-dark-theme button.bg-slate-900,
+.app-dark-theme button.bg-primary-600,
+.app-dark-theme .btn-primary {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border-radius: 10px !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.app-dark-theme button.bg-slate-900:hover,
+.app-dark-theme button.bg-primary-600:hover,
+.app-dark-theme .btn-primary:hover {
+  background-color: #6366f1 !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Sidebar and list items */
+.app-dark-theme .hover\:bg-slate-100:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+.app-dark-theme .bg-slate-900.text-white {
+  background-color: #4f46e5 !important; /* Active link style override */
+}
+
+/* Table overrides */
+.app-dark-theme table thead {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+.app-dark-theme table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Glassmorphic status and visibility badge overrides under dark theme */
+.app-dark-theme .bg-slate-200.text-slate-700 {
+  background-color: rgba(148, 163, 184, 0.15) !important;
+  color: #94a3b8 !important;
+}
+
+.app-dark-theme .bg-blue-100.text-blue-700 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+}
+
+.app-dark-theme .bg-green-100.text-green-700 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+}
+
+.app-dark-theme .bg-red-100.text-red-700 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+}
+
+.app-dark-theme .bg-teal-100.text-teal-700 {
+  background-color: rgba(20, 184, 166, 0.15) !important;
+  color: #2dd4bf !important;
+}
+
+.app-dark-theme .bg-purple-100.text-purple-700 {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #c084fc !important;
+}
+
+.app-dark-theme .bg-indigo-100.text-indigo-700 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #818cf8 !important;
+}
+
+.app-dark-theme .bg-amber-100.text-amber-700 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+}
+
+/* Rejection/escalation box background overrides */
+.app-dark-theme .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+.app-dark-theme .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.app-dark-theme .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+
+
 

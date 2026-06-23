@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { STATUS, VISIBILITY } from '../utils/facility';
 import { apiService } from '../utils/apiService';
+import { useAuth } from './AuthContext';
 
 const ComplaintContext = createContext({
   complaints: [],
@@ -26,6 +27,7 @@ const ComplaintContext = createContext({
 });
 
 export function ComplaintProvider({ children }) {
+  const { session } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [mergedGroups, setMergedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,9 +80,15 @@ export function ComplaintProvider({ children }) {
     createdAt: group.created_at || group.createdAt,
   });
 
-  // Load complaints on mount
+  // Load complaints on mount or session change
   useEffect(() => {
     const loadData = async () => {
+      if (!session) {
+        setComplaints([]);
+        setMergedGroups([]);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         setError(null);
@@ -99,7 +107,7 @@ export function ComplaintProvider({ children }) {
     };
 
     loadData();
-  }, []);
+  }, [session]);
 
   const addComplaint = async (payload) => {
     try {

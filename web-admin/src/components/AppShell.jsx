@@ -59,11 +59,12 @@ function WebLayout({ title, links, session, logout }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800">
+    <div className="min-h-screen bg-slate-950 text-white app-dark-theme">
       {/* Mobile hamburger (web small screens only) */}
-      <div className="md:hidden border-b bg-white p-3">
+      <div className="md:hidden border-b border-slate-800 bg-slate-900/60 p-3 flex items-center justify-between">
+        <span className="font-bold text-white tracking-tight">FacilityVoice</span>
         <button
-          className="rounded border px-3 py-1 text-sm"
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
           onClick={() => setOpen((v) => !v)}
           type="button"
           aria-label="Toggle menu"
@@ -72,17 +73,17 @@ function WebLayout({ title, links, session, logout }) {
         </button>
       </div>
 
-      <div className="mx-auto flex max-w-7xl">
+      <div className="flex w-full">
         {/* Sidebar */}
         <aside
           className={`${
             open ? 'block' : 'hidden'
-          } w-64 shrink-0 border-r bg-white p-4 md:block`}
+          } w-64 shrink-0 border-r border-slate-800 bg-slate-900/30 backdrop-blur-md p-6 md:block min-h-screen`}
         >
-          <h1 className="mb-1 text-xl font-semibold text-slate-800">FacilityDesk</h1>
-          <p className="mb-4 text-xs text-slate-500">{title}</p>
+          <h1 className="mb-1 text-2xl font-extrabold text-white tracking-tight">FacilityVoice</h1>
+          <p className="mb-6 text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
 
-          <nav className="space-y-1">
+          <nav className="space-y-1.5">
             {links.map((link) => {
               const active = location.pathname === link.to;
               return (
@@ -90,10 +91,10 @@ function WebLayout({ title, links, session, logout }) {
                   key={link.to}
                   to={link.to}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${
+                  className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
                     active
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15'
+                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
                   }`}
                 >
                   <NavIcon to={link.to} label={link.label} />
@@ -103,11 +104,11 @@ function WebLayout({ title, links, session, logout }) {
             })}
           </nav>
 
-          <div className="mt-6 border-t pt-4 text-xs text-slate-500">
-            <p className="font-medium text-slate-700">{session?.name}</p>
+          <div className="mt-8 border-t border-slate-800 pt-6 text-xs">
+            <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
             <button
               type="button"
-              className="mt-2 flex items-center gap-1 rounded bg-slate-900 px-3 py-1 text-white"
+              className="mt-3 flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-4 py-2 text-white font-semibold shadow-lg shadow-rose-600/10 transition-all duration-150"
               onClick={logout}
               data-testid="logoutButton"
             >
@@ -118,7 +119,7 @@ function WebLayout({ title, links, session, logout }) {
         </aside>
 
         {/* Page content */}
-        <main className="min-w-0 flex-1 p-4 md:p-6">
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>
@@ -131,18 +132,18 @@ function NativeLayout({ title, links, session, logout }) {
   const location = useLocation();
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-slate-800">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-white app-dark-theme">
       {/* Top header bar */}
-      <header className="flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
+      <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-3 shadow-sm">
         <div>
-          <p className="text-base font-semibold text-slate-800 leading-tight">FacilityDesk</p>
-          <p className="text-xs text-slate-500">{title}</p>
+          <p className="text-lg font-bold text-white leading-tight">FacilityVoice</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-600">{session?.name}</span>
+          <span className="text-xs text-slate-300 font-semibold">{session?.name}</span>
           <button
             type="button"
-            className="flex items-center gap-1 rounded bg-slate-900 px-3 py-1.5 text-xs text-white"
+            className="flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-3.5 py-2 text-xs text-white font-semibold transition"
             onClick={logout}
             aria-label="Logout"
             data-testid="logoutButton"
@@ -154,13 +155,13 @@ function NativeLayout({ title, links, session, logout }) {
       </header>
 
       {/* Scrollable page content — padded so it never hides behind the bottom nav */}
-      <main className="flex-1 overflow-y-auto p-4 pb-24">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
         <Outlet />
       </main>
 
       {/* Fixed bottom navigation */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex border-t bg-white"
+        className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-slate-800 bg-slate-900/90 text-slate-400"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         aria-label="Bottom navigation"
       >
@@ -172,14 +173,14 @@ function NativeLayout({ title, links, session, logout }) {
               to={link.to}
               className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-center transition-colors ${
                 active
-                  ? 'text-slate-900'
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'text-indigo-400 font-medium'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
               aria-current={active ? 'page' : undefined}
             >
               {/* Active indicator dot */}
               {active && (
-                <span className="absolute top-0 h-0.5 w-8 rounded-full bg-slate-900" />
+                <span className="absolute top-0 h-0.5 w-8 rounded-full bg-indigo-400" />
               )}
               <NavIcon to={link.to} label={link.label} />
               {/* Short label — truncate long names */}
