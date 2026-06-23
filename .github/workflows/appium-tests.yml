@@ -1,0 +1,43 @@
+name: Appium E2E Tests (appium-tests.yml)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-appium-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+          cache-dependency-path: appium-tests/package-lock.json
+
+      - name: Install Appium test dependencies
+        working-directory: appium-tests
+        run: npm ci
+
+      - name: Run Appium Direct Tests
+        working-directory: appium-tests
+        run: node run-direct.js
+
+      - name: Upload Appium Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-e2e-reports
+          path: |
+            appium-tests/reports/
+          if-no-files-found: warn
