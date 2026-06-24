@@ -28,5 +28,10 @@ appium-tests/node_modules/
 appium-tests/allure-results/
 appium-tests/reports/
 
+# Selenium test outputs
+selenium-tests/node_modules/
+selenium-tests/reports/
+selenium-tests/*.log
+
 # Generated vulnerability report
 Vulnerability Test Results/*.xlsx
