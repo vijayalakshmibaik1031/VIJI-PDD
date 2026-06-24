@@ -163,7 +163,7 @@ async function writeExcelReport(results, meta) {
   readySheet.addRow({ kpi: 'Broken Pages / Routes Check', status: 'All navigation paths verified', score: '0 BROKEN PAGES' });
   readySheet.addRow({ kpi: 'Console / Integration Errors', status: 'WebView log integration check completed', score: '0 CONSOLE ERRORS' });
   readySheet.addRow({ kpi: 'Network Connectivity Check', status: 'Railway endpoints checked successfully', score: 'SUCCESS' });
-  readySheet.addRow({ kpi: 'Backend API Connectivity', status: 'https://viji-pdd-production.up.railway.app/', score: 'CONNECTED' });
+  readySheet.addRow({ kpi: 'Backend API Connectivity', status: 'https://triumphant-grace-production.up.railway.app/', score: 'CONNECTED' });
   readySheet.addRow({ kpi: 'Database Health Check', status: 'Connected to Railway DB via health check API', score: 'CONNECTED (HEALTHY)' });
   readySheet.addRow({ kpi: 'Final Production Readiness Score', status: `Based on defect severity calculations`, score: `${prodScore}%` });
   
@@ -498,7 +498,7 @@ async function writeExcelReport(results, meta) {
         new Paragraph({
           children: [
             new TextRun({ text: `Backend Target API: `, bold: true }),
-            new TextRun({ text: 'https://viji-pdd-production.up.railway.app' }),
+            new TextRun({ text: 'https://triumphant-grace-production.up.railway.app' }),
           ],
           spacing: { after: 300 }
         }),
