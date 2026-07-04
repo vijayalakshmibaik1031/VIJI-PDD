@@ -35,3 +35,4 @@ selenium-tests/*.log
 
 # Generated vulnerability report
 Vulnerability Test Results/*.xlsx
+node_modules

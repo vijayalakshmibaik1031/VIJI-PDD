@@ -52,7 +52,7 @@ export default function App() {
 
 function MainApp() {
   // Pre-configured public Railway backend URL
-  const [apiUrl, setApiUrl] = useState('https://triumphant-grace-production.up.railway.app');
+  const [apiUrl, setApiUrl] = useState('https://viji-pdd-production.up.railway.app');
   const [isConfigured, setIsConfigured] = useState(false);
   
   // App Session States
@@ -297,7 +297,7 @@ function MainApp() {
               style={styles.input}
               value={apiUrl}
               onChangeText={setApiUrl}
-              placeholder="e.g. https://triumphant-grace-production.up.railway.app"
+              placeholder="e.g. https://viji-pdd-production.up.railway.app"
               placeholderTextColor="#64748b"
               autoCapitalize="none"
               autoCorrect={false}

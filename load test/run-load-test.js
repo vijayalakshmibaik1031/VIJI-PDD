@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = process.env.LOAD_BASE_URL || 'https://triumphant-grace-production.up.railway.app';
+const BASE_URL = process.env.LOAD_BASE_URL || 'https://viji-pdd-production.up.railway.app';
 const VIRTUAL_USERS = Number(process.env.LOAD_USERS || 100);
 const DURATION_SECONDS = Number(process.env.LOAD_DURATION_SECONDS || 60);
 const THINK_TIME_MS = Number(process.env.LOAD_THINK_TIME_MS || 100);

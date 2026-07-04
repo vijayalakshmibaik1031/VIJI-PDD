@@ -4,5 +4,8 @@
   "scripts": {
     "tests:appium": "cd appium-tests && node run-tests.js",
     "tests:selenium": "cd selenium-tests && node run-tests.js"
+  },
+  "dependencies": {
+    "expo": "^54.0.8"
   }
 }

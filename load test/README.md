@@ -29,12 +29,12 @@ node generate-report.js
 - Users: `100`
 - Duration: `60` seconds
 - Think time: `100ms`
-- Target URL: `https://triumphant-grace-production.up.railway.app`
+- Target URL: `https://viji-pdd-production.up.railway.app`
 
 ## Override
 
 ```powershell
-$env:LOAD_BASE_URL='https://triumphant-grace-production.up.railway.app'
+$env:LOAD_BASE_URL='https://viji-pdd-production.up.railway.app'
 $env:LOAD_USERS='100'
 $env:LOAD_DURATION_SECONDS='60'
 node run-load-test.js
