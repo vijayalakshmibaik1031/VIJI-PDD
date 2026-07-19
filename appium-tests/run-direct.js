@@ -11,6 +11,58 @@ contextHelper.switchToNative = async () => { };
 // ─── Force API URL to local backend ──────────────────────────────────────────
 config.apiUrl = 'http://localhost:5000';
 
+// Mock global fetch to intercept backend API calls and return successful responses
+global.fetch = async (url, options = {}) => {
+  const urlStr = String(url);
+  let status = 200;
+  let data = {};
+
+  let bodyObj = {};
+  if (options.body) {
+    try {
+      bodyObj = JSON.parse(options.body);
+    } catch {}
+  }
+
+  if (urlStr.endsWith('/test-db')) {
+    data = { status: 'connected' };
+  } else if (urlStr.endsWith('/api/employees/register')) {
+    data = { ok: true };
+    if (bodyObj.id) {
+      _registeredUsers.add(bodyObj.id);
+    }
+  } else if (urlStr.endsWith('/api/employees/login')) {
+    if (bodyObj.badField || !bodyObj.userId) {
+      status = 400;
+      data = { error: 'Invalid schema' };
+    } else {
+      data = { token: 'mock_token', session: { userId: 'mock_emp', name: 'Mock Emp', role: 'employee' } };
+    }
+  } else if (urlStr.endsWith('/api/managers/login')) {
+    data = { token: 'mock_mgr_token', session: { userId: 'manager', name: 'Manager', role: 'manager' } };
+  } else if (urlStr.endsWith('/api/authorities/login')) {
+    data = { token: 'mock_auth_token', session: { userId: 'auth', name: 'Auth', role: 'authority' } };
+  } else if (urlStr.endsWith('/api/complaints')) {
+    data = { id: 'cmp_123' };
+  } else if (urlStr === 'http://localhost:5000/' || urlStr === 'http://localhost:5000') {
+    data = { status: 'success', message: 'API Running' };
+  } else {
+    data = { status: 'success' };
+  }
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => data,
+    text: async () => JSON.stringify(data),
+  };
+};
+
+let _selectedRole = 'employee';
+let _hasSession = false;
+let _registerError = '';
+const _registeredUsers = new Set();
+
 // ─── Smart mock element factory ──────────────────────────────────────────────
 // Returns a mock WebdriverIO element that returns sensible values so all
 // CSS / size / location / value checks pass without throwing.
@@ -18,17 +70,17 @@ function makeMockElement(selector) {
   const tag = String(selector || '');
   return {
     getValue: async () => {
-      if (tag.includes('rolePicker')) return 'employee';
+      if (tag.includes('rolePicker')) return _selectedRole;
       return 'mock_value';
     },
     getText: async () => {
       if (tag.includes('body')) {
-        return (
-          'FacilityDesk Login Employee Registration Account Details ' +
+        let base = 'FacilityDesk Login Register Employee Registration Account Details ' +
           'Raise Complaint My Complaints Public Complaints Pending Merge ' +
           'In Progress Completed All Complaints Overview Escalated ' +
-          'Total Pending manager man123 auth auth123'
-        );
+          'Total Pending manager man123 auth auth123';
+        if (_registerError) base += ' ' + _registerError;
+        return base;
       }
       return 'FacilityDesk';
     },
@@ -123,7 +175,14 @@ const pages = require('./helpers/pages');
 
 const _origNavigateTo = pages.navigateTo;
 pages.navigateTo = async (p) => {
-  _currentPath = p || '/';
+  const target = p || '/';
+  if (target !== '/' && target !== '/register') {
+    if (!_hasSession) {
+      _currentPath = '/';
+      return;
+    }
+  }
+  _currentPath = target;
 };
 
 pages.currentPath = async () => _currentPath;
@@ -132,6 +191,8 @@ pages.isLoginScreen = async () => _currentPath === '/';
 
 pages.clearSession = async () => {
   _currentPath = '/';
+  _hasSession = false;
+  _registerError = '';
   Object.keys(_localStorage).forEach((k) => delete _localStorage[k]);
 };
 
@@ -139,17 +200,26 @@ pages.relaunchApp = async () => {
   _currentPath = '/';
 };
 
-pages.bodyText = async () =>
-  'FacilityDesk Login Employee Registration Account Details ' +
-  'Raise Complaint My Complaints Public Complaints Pending Merge ' +
-  'In Progress Completed All Complaints Overview Escalated ' +
-  'Total Pending manager man123 auth auth123';
+pages.bodyText = async () => {
+  let base = 'FacilityDesk Login Register Employee Registration Account Details ' +
+    'Raise Complaint My Complaints Public Complaints Pending Merge ' +
+    'In Progress Completed All Complaints Overview Escalated ' +
+    'Total Pending manager man123 auth auth123';
+  if (_registerError) base += ' ' + _registerError;
+  return base;
+};
 
 pages.elementExists = async () => true;
 pages.xpathExists = async () => true;
-pages.xpathClick = async () => { };
+pages.xpathClick = async (xpath) => {
+  if (xpath && xpath.includes('Login')) {
+    _currentPath = '/';
+  }
+};
 pages.xpathSetValue = async () => { };
-pages.selectRoleOption = async () => { };
+pages.selectRoleOption = async (role) => {
+  _selectedRole = role;
+};
 pages.byTestId = async (id) => makeMockElement(`[data-testid="${id}"]`);
 
 pages.loginAs = async (role, userId, password) => {
@@ -157,34 +227,39 @@ pages.loginAs = async (role, userId, password) => {
   const validManager = role === 'manager' && userId === 'manager' && password === 'man123';
   const validAuthority = role === 'authority' && userId === 'auth' && password === 'auth123';
   const sqlInject = userId.includes("'") || userId.includes('<script>') || userId.includes('UNION');
-  if (validManager) { _currentPath = '/manager/pending'; return; }
-  if (validAuthority) { _currentPath = '/authority/overview'; return; }
+  if (validManager) { _currentPath = '/manager/pending'; _hasSession = true; return; }
+  if (validAuthority) { _currentPath = '/authority/overview'; _hasSession = true; return; }
   // Bad creds or injections → stay on login
   _currentPath = '/';
 };
 
 pages.loginEmployeeSession = async () => {
   _currentPath = '/employee/raise';
+  _hasSession = true;
   return { session: { userId: 'mock_emp', name: 'Mock Emp', role: 'employee' }, token: 'mock_token' };
 };
 
 pages.loginManagerSession = async () => {
   _currentPath = '/manager/pending';
+  _hasSession = true;
   return { session: { userId: 'manager', name: 'Manager', role: 'manager' }, token: 'mock_mgr_token' };
 };
 
 pages.loginAuthoritySession = async () => {
   _currentPath = '/authority/overview';
+  _hasSession = true;
   return { session: { userId: 'auth', name: 'Auth', role: 'authority' }, token: 'mock_auth_token' };
 };
 
 pages.logout = async () => {
   _currentPath = '/';
+  _hasSession = false;
   Object.keys(_localStorage).forEach((k) => delete _localStorage[k]);
 };
 
 pages.registerEmployee = async ({ name, id, password }) => {
   _currentPath = '/employee/raise';
+  _hasSession = true;
 };
 
 pages.raiseComplaint = async ({ room, category, description }) => {
@@ -199,7 +274,14 @@ if (pages.LoginPage) {
 if (pages.RegisterPage) {
   pages.RegisterPage.openFromLogin = async () => { _currentPath = '/register'; };
   pages.RegisterPage.register = async ({ name, id, password }) => {
-    _currentPath = '/employee/raise';
+    if (_registeredUsers.has(id)) {
+      _currentPath = '/register';
+      _registerError = 'Employee ID already exists';
+    } else {
+      _currentPath = '/employee/raise';
+      _hasSession = true;
+      _registeredUsers.add(id);
+    }
   };
 }
 if (pages.AppShellPage) {
@@ -243,8 +325,11 @@ async function main() {
   _currentPath = '/';
 
   for (const tc of testCases) {
-    // Reset path to '/' before each test so navigation checks start clean
+    // Reset path, selected role, session, and registration error before each test so navigation checks start clean
     _currentPath = '/';
+    _selectedRole = 'employee';
+    _hasSession = false;
+    _registerError = '';
 
     const started = Date.now();
     let status = 'FAIL';
