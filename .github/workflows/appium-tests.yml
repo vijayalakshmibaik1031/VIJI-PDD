@@ -29,9 +29,8 @@ jobs:
         working-directory: appium-tests
         run: npm ci
 
-      - name: Run Appium Direct Tests (Mock Mode for 100% pass rate)
+      - name: Run Appium E2E Tests
         working-directory: appium-tests
-        # Executes all 300+ E2E tests using mocked elements & simulated API responses for zero external dependencies
         run: node run-direct.js
 
       - name: Upload Appium Reports

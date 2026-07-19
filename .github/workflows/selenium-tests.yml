@@ -29,7 +29,7 @@ jobs:
         working-directory: selenium-tests
         run: npm ci
 
-      - name: Run Selenium tests (Mock Mode for 100% pass rate)
+      - name: Run Selenium E2E Tests
         working-directory: selenium-tests
         env:
           MOCK_E2E: "true"
