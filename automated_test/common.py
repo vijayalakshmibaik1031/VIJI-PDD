@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
-DEFAULT_BASE_URL = "https://viji-pdd-production.up.railway.app"
+DEFAULT_BASE_URL = "https://viji-pdd-production-7c95.up.railway.app"
 INPUT_FILE = BASE_DIR / "input.json"
 DISCOVERY_FILE = BASE_DIR / "discovered-endpoints.json"
 REPORT_FILE = BASE_DIR / "report.json"

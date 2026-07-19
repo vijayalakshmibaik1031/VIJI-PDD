@@ -1,0 +1,6 @@
+{
+  "appId": "com.viji.pdd",
+  "appName": "VIJI-PDD",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

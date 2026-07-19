@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VIJI-PDD</string>
+    <string name="title_activity_main">VIJI-PDD</string>
+    <string name="package_name">com.viji.pdd</string>
+    <string name="custom_url_scheme">com.viji.pdd</string>
+</resources>

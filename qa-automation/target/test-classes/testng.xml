@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="VIJI Selenium Test Suite" verbose="2" parallel="methods" thread-count="4">
+    
+    <!-- Smoke Tests -->
+    <test name="Smoke Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="smoke"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.LoginTests"/>
+            <class name="com.viji.automation.tests.DashboardTests"/>
+        </classes>
+    </test>
+
+    <!-- Functional Tests -->
+    <test name="Functional Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="functional"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.LoginTests"/>
+            <class name="com.viji.automation.tests.RegistrationTests"/>
+            <class name="com.viji.automation.tests.DashboardTests"/>
+            <class name="com.viji.automation.tests.ComplaintCreationTests"/>
+            <class name="com.viji.automation.tests.ComplaintViewEditTests"/>
+            <class name="com.viji.automation.tests.NavigationSearchTests"/>
+        </classes>
+    </test>
+
+    <!-- Validation Tests -->
+    <test name="Validation Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="validation"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.LoginTests"/>
+            <class name="com.viji.automation.tests.RegistrationTests"/>
+            <class name="com.viji.automation.tests.FormValidationTests"/>
+        </classes>
+    </test>
+
+    <!-- Security Tests -->
+    <test name="Security Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="security"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.SecurityTests"/>
+            <class name="com.viji.automation.tests.RBACTests"/>
+            <class name="com.viji.automation.tests.LoginTests"/>
+        </classes>
+    </test>
+
+    <!-- Performance Tests -->
+    <test name="Performance Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="performance"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.PerformanceTests"/>
+            <class name="com.viji.automation.tests.LoginTests"/>
+        </classes>
+    </test>
+
+    <!-- UI/UX Tests -->
+    <test name="UI/UX Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="ui"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.UITests"/>
+            <class name="com.viji.automation.tests.ResponsiveTests"/>
+        </classes>
+    </test>
+
+    <!-- Cross-browser Tests -->
+    <test name="Cross-Browser Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="cross-browser"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.CrossBrowserTests"/>
+        </classes>
+    </test>
+
+    <!-- Accessibility Tests -->
+    <test name="Accessibility Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="accessibility"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.AccessibilityTests"/>
+        </classes>
+    </test>
+
+    <!-- Regression Tests -->
+    <test name="Regression Tests" enabled="true">
+        <groups>
+            <run>
+                <include name="regression"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.viji.automation.tests.RegressionTestSuite"/>
+        </classes>
+    </test>
+
+</suite>
