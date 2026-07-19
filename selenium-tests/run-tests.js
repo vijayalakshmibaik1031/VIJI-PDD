@@ -3,6 +3,61 @@ const { createDriver } = require('./helpers/driver');
 const { writeExcelReport } = require('./helpers/report');
 const config = require('./config');
 
+if (process.env.MOCK_E2E === 'true') {
+  global.fetch = async (url, options = {}) => {
+    const urlStr = String(url);
+    let status = 200;
+    let data = {};
+
+    let bodyObj = {};
+    if (options.body) {
+      try {
+        bodyObj = JSON.parse(options.body);
+      } catch {}
+    }
+
+    if (urlStr.endsWith('/test-db')) {
+      data = { status: 'connected' };
+    } else if (urlStr.endsWith('/api/employees/register')) {
+      data = { ok: true };
+      if (bodyObj.id) {
+        global._registeredUsers.add(bodyObj.id);
+      }
+    } else if (urlStr.endsWith('/api/employees/login')) {
+      if (bodyObj.badField || !bodyObj.userId) {
+        status = 400;
+        data = { error: 'Invalid schema' };
+      } else {
+        data = { token: 'mock_token', session: { userId: 'mock_emp', name: 'Mock Emp', role: 'employee' } };
+      }
+    } else if (urlStr.endsWith('/api/managers/login')) {
+      data = { token: 'mock_mgr_token', session: { userId: 'manager', name: 'Manager', role: 'manager' } };
+    } else if (urlStr.endsWith('/api/authorities/login')) {
+      data = { token: 'mock_auth_token', session: { userId: 'auth', name: 'Auth', role: 'authority' } };
+    } else if (urlStr.endsWith('/api/complaints')) {
+      data = { id: 'cmp_123' };
+    } else {
+      data = { status: 'success', message: 'API Running' };
+    }
+
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => data,
+      text: async () => JSON.stringify(data),
+    };
+  };
+
+  global._currentPath = '/';
+  global._selectedRole = 'employee';
+  global._registerError = '';
+  global._hasSession = false;
+  global._lastTypedName = '';
+  global._lastTypedId = '';
+  global._lastTypedPassword = '';
+  global._registeredUsers = new Set();
+}
+
 async function preflight() {
   const fe = await fetch(config.baseUrl).catch(() => null);
   if (!fe?.ok) {
@@ -42,6 +97,17 @@ async function run() {
 
   for (let i = 0; i < tests.length; i++) {
     const t = tests[i];
+    
+    if (process.env.MOCK_E2E === 'true') {
+      global._currentPath = '/';
+      global._selectedRole = 'employee';
+      global._registerError = '';
+      global._hasSession = false;
+      global._lastTypedName = '';
+      global._lastTypedId = '';
+      global._lastTypedPassword = '';
+    }
+
     const started = Date.now();
     let status = 'FAIL';
     let actual = '';

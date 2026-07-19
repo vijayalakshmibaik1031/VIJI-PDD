@@ -12,6 +12,7 @@ let cachedManagerSession = null;
 let cachedAuthoritySession = null;
 
 async function sleep(ms) {
+  if (process.env.MOCK_E2E === 'true') return;
   return new Promise((r) => setTimeout(r, ms));
 }
 
