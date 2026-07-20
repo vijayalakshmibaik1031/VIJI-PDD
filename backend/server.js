@@ -10,10 +10,15 @@ const BCRYPT_ROUNDS = 10;
 
 // Configure Gmail Nodemailer transporter
 const mailTransporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
     user: "vijayalakshmibai0686@gmail.com",
     pass: "mvolzegmmjoqmzqw"
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
@@ -415,9 +420,9 @@ app.post("/api/employees/register", async (req, res) => {
       [normalizedId, normalizedName, normalizedUsername, hashedPassword, verificationToken]
     );
 
-    // Send verification email asynchronously
-    await sendVerificationEmail(normalizedId, verificationToken).catch((err) => {
-      console.error("Mail delivery failure:", err.message);
+    // Send verification email in the background (do not await)
+    sendVerificationEmail(normalizedId, verificationToken).catch((err) => {
+      console.error("Mail delivery failure in background:", err.message);
     });
 
     res.status(201).json({ message: "Registration successful! Please check your email to verify your account." });
@@ -714,6 +719,42 @@ app.get("/api/verify-email", async (req, res) => {
         <p>Verification failed. Please try again later.</p>
       </div>
     `);
+  }
+});
+
+app.get("/api/employees/check-verification", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [email.trim()]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const employee = result.rows[0];
+    if (employee.is_verified) {
+      // Create a session for auto-login
+      const sessionToken = generateToken();
+      await pool.query(
+        "INSERT INTO sessions (token, user_id, user_role) VALUES ($1, $2, $3)",
+        [sessionToken, employee.id, "employee"]
+      );
+      return res.json({
+        verified: true,
+        token: sessionToken,
+        session: {
+          role: "employee",
+          userId: employee.id,
+          name: employee.name,
+          username: employee.username || "",
+          needsSetup: false
+        }
+      });
+    }
+    res.json({ verified: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

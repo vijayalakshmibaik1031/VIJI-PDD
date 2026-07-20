@@ -115,11 +115,7 @@ export default function Login() {
       else if (session.role === 'authority') destination = '/authority/overview';
       navigate(destination, { replace: true });
     } catch (err) {
-      if (role === 'employee') {
-        setError('user not found');
-      } else {
-        setError(err.message || 'Login failed');
-      }
+      setError(err.message || 'Login failed');
     }
   };
 

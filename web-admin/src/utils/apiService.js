@@ -236,4 +236,7 @@ export const apiService = {
       headers: authHeaders(),
       body: JSON.stringify(payload),
     }),
+
+  checkVerificationStatus: (email) =>
+    apiFetch(`${API_URL}/employees/check-verification?email=${encodeURIComponent(email)}`),
 };
