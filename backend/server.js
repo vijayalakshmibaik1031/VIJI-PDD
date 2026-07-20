@@ -589,7 +589,7 @@ app.post("/api/employees/update-profile", requireAuth, async (req, res) => {
     const { username, password, name } = req.body;
     const employeeId = req.user.userId;
 
-    let updateQuery = "UPDATE employees SET ";
+    let updateQuery = "UPDATE employees SET is_verified = TRUE, ";
     const params = [];
     let paramIndex = 1;
 
