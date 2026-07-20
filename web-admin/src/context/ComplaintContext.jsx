@@ -3,9 +3,19 @@ import { STATUS, VISIBILITY } from '../utils/facility';
 import { apiService } from '../utils/apiService';
 import { useAuth } from './AuthContext';
 
+const DEFAULT_ROOMS = Array.from({ length: 5 }, (_, floor) =>
+  Array.from({ length: 5 }, (_, room) => ({
+    id: `default-${floor + 1}${room + 1}`,
+    room_number: `${floor + 1}${room + 1}`,
+    floor_number: `${floor + 1}`,
+    created_at: new Date().toISOString()
+  }))
+).flat();
+
 const ComplaintContext = createContext({
   complaints: [],
   mergedGroups: [],
+  rooms: [],
   loading: true,
   error: null,
   pendingUnmerged: [],
@@ -22,6 +32,9 @@ const ComplaintContext = createContext({
   acknowledgeMergedComplaint: async () => {},
   mergeComplaints: async () => {},
   getRejectionCount: () => 0,
+  createRoom: async () => {},
+  updateRoom: async () => {},
+  deleteRoom: async () => {},
   status: {},
   visibility: {},
 });
@@ -30,6 +43,7 @@ export function ComplaintProvider({ children }) {
   const { session } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [mergedGroups, setMergedGroups] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -86,18 +100,21 @@ export function ComplaintProvider({ children }) {
       if (!session) {
         setComplaints([]);
         setMergedGroups([]);
+        setRooms([]);
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
         setError(null);
-        const [complaintsData, mergedData] = await Promise.all([
+        const [complaintsData, mergedData, roomsData] = await Promise.all([
           apiService.getComplaints(),
           apiService.getMergedGroups(),
+          apiService.getRooms(),
         ]);
         setComplaints(complaintsData.map(normalizeComplaint));
         setMergedGroups(mergedData.map(normalizeMergedGroup));
+        setRooms(roomsData);
       } catch (err) {
         setError(err.message);
         console.error('Failed to load data:', err);
@@ -157,12 +174,47 @@ export function ComplaintProvider({ children }) {
   };
 
   const reload = async () => {
-    const [complaintsData, mergedData] = await Promise.all([
+    const [complaintsData, mergedData, roomsData] = await Promise.all([
       apiService.getComplaints(),
       apiService.getMergedGroups(),
+      apiService.getRooms(),
     ]);
     setComplaints(complaintsData.map(normalizeComplaint));
     setMergedGroups(mergedData.map(normalizeMergedGroup));
+    setRooms(roomsData);
+  };
+
+  const createRoom = async (roomNumber, floorNumber) => {
+    try {
+      setError(null);
+      await apiService.createRoom(roomNumber, floorNumber);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const updateRoom = async (id, roomNumber, floorNumber) => {
+    try {
+      setError(null);
+      await apiService.updateRoom(id, roomNumber, floorNumber);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const deleteRoom = async (id) => {
+    try {
+      setError(null);
+      await apiService.deleteRoom(id);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   const rejectComplaint = async (id, reason) => {
@@ -296,6 +348,7 @@ export function ComplaintProvider({ children }) {
     () => ({
       complaints,
       mergedGroups,
+      rooms,
       loading,
       error,
       pendingUnmerged,
@@ -312,11 +365,14 @@ export function ComplaintProvider({ children }) {
       acknowledgeMergedComplaint,
       mergeComplaints,
       getRejectionCount,
+      createRoom,
+      updateRoom,
+      deleteRoom,
       status: STATUS,
       visibility: VISIBILITY,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [complaints, mergedGroups, loading, error],
+    [complaints, mergedGroups, rooms, loading, error],
   );
 
   return <ComplaintContext.Provider value={value}>{children}</ComplaintContext.Provider>;

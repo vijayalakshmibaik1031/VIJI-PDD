@@ -20,6 +20,7 @@ import AuthorityLayout from './pages/authority/AuthorityLayout';
 import AuthorityOverview from './pages/authority/AuthorityOverview';
 import AuthorityAll from './pages/authority/AuthorityAll';
 import AuthorityEscalated from './pages/authority/AuthorityEscalated';
+import AuthorityRooms from './pages/authority/AuthorityRooms';
 
 function HomeRedirect() {
   const { session } = useAuth();
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="overview" element={<AuthorityOverview />} />
           <Route path="all" element={<AuthorityAll />} />
           <Route path="escalated" element={<AuthorityEscalated />} />
+          <Route path="rooms" element={<AuthorityRooms />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

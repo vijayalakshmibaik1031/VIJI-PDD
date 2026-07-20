@@ -198,4 +198,28 @@ export const apiService = {
       method: 'PATCH',
       headers: authHeaders(),
     }),
+
+  // ── Rooms CRUD ─────────────────────────────────────────────────────────────
+  getRooms: () =>
+    apiFetch(`${API_URL}/rooms`, { headers: authHeaders() }),
+
+  createRoom: (roomNumber, floorNumber) =>
+    apiFetch(`${API_URL}/rooms`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ roomNumber, floorNumber }),
+    }),
+
+  updateRoom: (id, roomNumber, floorNumber) =>
+    apiFetch(`${API_URL}/rooms/${id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ roomNumber, floorNumber }),
+    }),
+
+  deleteRoom: (id) =>
+    apiFetch(`${API_URL}/rooms/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }),
 };

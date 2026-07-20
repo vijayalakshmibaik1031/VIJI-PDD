@@ -625,6 +625,7 @@
 }
 
 /* Sidebar and list items */
+.app-dark-theme .hover\:bg-slate-50:hover,
 .app-dark-theme .hover\:bg-slate-100:hover {
   background-color: rgba(255, 255, 255, 0.05) !important;
   color: #ffffff !important;
@@ -703,6 +704,11 @@
 
 .app-dark-theme .border-indigo-200 {
   border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Force dark theme labels to permanently retain their slate/gray color */
+.app-dark-theme label {
+  color: #cbd5e1 !important;
 }
 
 

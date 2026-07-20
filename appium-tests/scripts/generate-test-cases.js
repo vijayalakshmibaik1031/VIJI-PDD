@@ -60,8 +60,8 @@ s = s.replace(
 );
 
 s = s.replace(
-  /await pages\.clearSession\(\);\s*await pages\.navigateTo\('\/register'\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Name'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\('Dup B'\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Employee ID'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\(uid\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Password'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\('pass5678'\);\s*await d\.findElement\(pages\.By\.css\('button\[type="submit"\]'\)\)\.click\(\);/g,
-  "await pages.clearSession();\n      await pages.navigateTo('/register');\n      await pages.RegisterPage.register({ name: 'Dup B', id: uid, password: 'pass5678' });",
+  /await pages\.clearSession\(\);\s*await pages\.navigateTo\('\/register'\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Name'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\('Dup B'\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Employee ID'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\(uid\);\s*await d\.findElement\(pages\.By\.xpath\("\/\/label\[normalize-space\(\)='Password'\]\/following-sibling::input\[1\]"\)\)\.sendKeys\('Pass5678!'\);\s*await d\.findElement\(pages\.By\.css\('button\[type="submit"\]'\)\)\.click\(\);/g,
+  "await pages.clearSession();\n      await pages.navigateTo('/register');\n      await pages.RegisterPage.register({ name: 'Dup B', id: uid, password: 'Pass5678!' });",
 );
 
 s = s.replace(

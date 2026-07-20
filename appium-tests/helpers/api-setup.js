@@ -17,7 +17,7 @@ async function apiPost(path, body, token) {
 async function registerAndLoginEmployee() {
   const id = `e2e_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
   const name = 'E2E Test Employee';
-  const password = 'TestPass123';
+  const password = 'TestPass123!';
   await apiPost('/api/employees/register', { id, name, password });
   const data = await apiPost('/api/employees/login', { userId: id, password });
   return { id, name, password, token: data.token, session: data.session };

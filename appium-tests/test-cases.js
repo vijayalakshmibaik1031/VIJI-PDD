@@ -95,7 +95,7 @@ function buildTestCases() {
     }),
     tc(id(), 'Functional', 'Valid employee registration', 'New employee can register via UI', 'Fill form and submit', 'Redirect to employee portal', 'Critical', async () => {
       const uid = `ui_${Date.now()}`;
-      await pages.registerEmployee({ name: 'E2E User', id: uid, password: 'TestPass123' });
+      await pages.registerEmployee({ name: 'E2E User', id: uid, password: 'TestPass123!' });
       const path = await pages.currentPath();
       const text = await pages.bodyText();
       const ok = path.includes('/employee') || text.includes('Employee Portal');
@@ -453,10 +453,10 @@ function buildTestCases() {
     }),
     tc(id(), 'Error Handling', 'Duplicate registration Employee ID validation', 'Verify duplicate error occurs', 'Register same ID twice', 'Duplicate rejected', 'High', async () => {
       const uid = `dup_${Date.now()}`;
-      await apiPost('/api/employees/register', { id: uid, name: 'Dup A', password: 'pass1234' });
+      await apiPost('/api/employees/register', { id: uid, name: 'Dup A', password: 'Pass1234!' });
       await pages.clearSession();
       await pages.navigateTo('/register');
-      await pages.RegisterPage.register({ name: 'Dup B', id: uid, password: 'pass5678' });
+      await pages.RegisterPage.register({ name: 'Dup B', id: uid, password: 'Pass5678!' });
       await pages.sleep(1200);
       const text = await pages.bodyText();
       const path = await pages.currentPath();

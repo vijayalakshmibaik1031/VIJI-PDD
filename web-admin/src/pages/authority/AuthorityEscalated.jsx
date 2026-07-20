@@ -4,7 +4,7 @@ import { EmptyState, StatusBadge, CardMeta } from '../../components/FacilityUI';
 import { useToast } from '../../context/ToastContext';
 
 export default function AuthorityEscalated() {
-  const { complaints, mergedGroups, acknowledgeComplaint, acknowledgeMergedComplaint } = useComplaints();
+  const { complaints, mergedGroups, acknowledgeComplaint, acknowledgeMergedComplaint, completeComplaint } = useComplaints();
   const { showToast } = useToast();
 
   // Individual complaints escalated (by manager after 5 rejections, or manually)
@@ -65,6 +65,15 @@ export default function AuthorityEscalated() {
       showToast('Merged group acknowledged');
     } catch (err) {
       showToast(err.message || 'Failed to acknowledge');
+    }
+  };
+
+  const handleCompleteComplaint = async (id) => {
+    try {
+      await completeComplaint(id, 'Resolved by Authority', null);
+      showToast('Complaint completed by Authority');
+    } catch (err) {
+      showToast(err.message || 'Failed to complete complaint');
     }
   };
 
@@ -249,6 +258,14 @@ export default function AuthorityEscalated() {
                 </p>
                 <p className="text-sm text-slate-700">{complaint.description}</p>
                 <CardMeta createdAt={complaint.createdAt} />
+                <div className="mt-3">
+                  <button
+                    className="rounded bg-green-700 hover:bg-green-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                    onClick={() => handleCompleteComplaint(complaint.id)}
+                  >
+                    Mark as Complete
+                  </button>
+                </div>
               </div>
             ))}
             {acknowledgedMerged.map((group) => (

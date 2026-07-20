@@ -8,6 +8,7 @@ export default function AuthorityLayout() {
         { label: 'Overview', to: '/authority/overview' },
         { label: 'All Complaints', to: '/authority/all' },
         { label: 'Escalated / High Priority', to: '/authority/escalated' },
+        { label: 'Manage Rooms', to: '/authority/rooms' },
       ]}
     />
   );

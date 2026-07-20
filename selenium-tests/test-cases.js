@@ -379,8 +379,8 @@ function buildTestCases() {
     }),
     tc(id(), 'Register', 'Valid employee registration', 'New employee can register via UI', 'Fill form and submit', 'Redirect to employee portal', 'Critical', async (d) => {
       const uid = `ui_${Date.now()}`;
-      await apiPost('/api/employees/register', { id: uid, name: 'E2E User', password: 'TestPass123' });
-      const loggedIn = await apiPost('/api/employees/login', { userId: uid, password: 'TestPass123' });
+      await apiPost('/api/employees/register', { id: uid, name: 'E2E User', password: 'TestPass123!' });
+      const loggedIn = await apiPost('/api/employees/login', { userId: uid, password: 'TestPass123!' });
       return { pass: !!loggedIn.token && !!loggedIn.session, actual: `registered:${uid}` };
     }),
     tc(id(), 'Register', 'Back to login link', 'Navigation to login', 'Click Login link', 'Navigate to /', 'Medium', async (d) => {
@@ -392,12 +392,12 @@ function buildTestCases() {
     }),
     tc(id(), 'Register', 'Duplicate employee ID rejected', 'Cannot register same ID twice', 'Register same ID twice', 'Error on second attempt', 'High', async (d) => {
       const uid = `dup_${Date.now()}`;
-      await apiPost('/api/employees/register', { id: uid, name: 'Dup A', password: 'pass1234' });
+      await apiPost('/api/employees/register', { id: uid, name: 'Dup A', password: 'Pass1234!' });
       await pages.clearSession(d);
       await pages.goTo(d, '/register');
       await d.findElement(pages.By.xpath("//label[normalize-space()='Name']/following-sibling::input[1]")).sendKeys('Dup B');
       await d.findElement(pages.By.xpath("//label[normalize-space()='Employee ID']/following-sibling::input[1]")).sendKeys(uid);
-      await d.findElement(pages.By.xpath("//label[normalize-space()='Password']/following-sibling::input[1]")).sendKeys('pass5678');
+      await d.findElement(pages.By.xpath("//label[normalize-space()='Password']/following-sibling::input[1]")).sendKeys('Pass5678!');
       await d.findElement(pages.By.css('button[type="submit"]')).click();
       await pages.sleep(1200);
       const text = await pages.bodyText(d);
@@ -415,7 +415,7 @@ function buildTestCases() {
       return { pass: (await pages.getCurrentPath(d)).includes('/register'), actual: await pages.getCurrentPath(d) };
     }),
     tc(id(), 'Register', 'SQL injection in employee ID', 'Sanitized registration', "ID: '; DROP TABLE--", 'Safe handling', 'High', async (d) => {
-      await pages.registerEmployee(d, { name: 'SQL Test', id: `sql_${Date.now()}`, password: 'pass1234' });
+      await pages.registerEmployee(d, { name: 'SQL Test', id: `sql_${Date.now()}`, password: 'Pass1234!' });
       const path = await pages.getCurrentPath(d);
       return { pass: path.includes('/employee') || path.includes('/register'), actual: path };
     })

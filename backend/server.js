@@ -243,6 +243,36 @@ async function initializeDatabase() {
     `);
     console.log("✓ sessions table ready");
 
+    // Create rooms table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rooms (
+        id SERIAL PRIMARY KEY,
+        room_number VARCHAR(50) NOT NULL UNIQUE,
+        floor_number VARCHAR(50) NOT NULL DEFAULT '1',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) NOT NULL DEFAULT '1'`).catch(() => {});
+    console.log("✓ rooms table ready");
+
+    // Seed default rooms if empty
+    const roomCheck = await pool.query("SELECT COUNT(*) FROM rooms");
+    if (parseInt(roomCheck.rows[0].count, 10) === 0) {
+      const defaultRooms = Array.from({ length: 5 }, (_, floor) =>
+        Array.from({ length: 5 }, (_, room) => ({
+          room_number: `${floor + 1}${room + 1}`,
+          floor_number: `${floor + 1}`
+        }))
+      ).flat();
+      for (const r of defaultRooms) {
+        await pool.query(
+          "INSERT INTO rooms (room_number, floor_number) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          [r.room_number, r.floor_number]
+        );
+      }
+      console.log("✓ Seeded default rooms");
+    }
+
     console.log("Database initialization complete!");
 
     // Seed/migrate manager and authority accounts with hashed passwords
@@ -290,6 +320,23 @@ app.post("/api/employees/register", async (req, res) => {
     const normalizedId = id.trim();
     const normalizedName = name.trim();
     const normalizedPassword = password.trim();
+
+    // Password validation constraints
+    if (normalizedPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+    if (!/[A-Z]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+    }
+    if (!/[a-z]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
+    }
+    if (!/[0-9]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one numeric digit" });
+    }
+    if (!/[^a-zA-Z0-9]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one special character/symbol" });
+    }
     
     // Test database connection
     await pool.query("SELECT 1");
@@ -328,7 +375,7 @@ app.post("/api/employees/login", async (req, res) => {
 
     const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [normalizedUserId]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid employee credentials" });
+      return res.status(401).json({ error: "user not found" });
     }
 
     const employee = result.rows[0];
@@ -338,7 +385,7 @@ app.post("/api/employees/login", async (req, res) => {
       : normalizedPassword === employee.password;
 
     if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid employee credentials" });
+      return res.status(401).json({ error: "user not found" });
     }
 
     // Migrate plain-text password to bcrypt on first login
@@ -1011,8 +1058,96 @@ app.patch("/api/merged-groups/:id/acknowledge", requireAuth, async (req, res) =>
   }
 });
 
+// ===== ROOMS CRUD ENDPOINTS =====
+app.get("/api/rooms", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM rooms ORDER BY room_number ASC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch rooms" });
+  }
+});
+
+app.post("/api/rooms", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'authority') {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+    const { roomNumber, floorNumber } = req.body;
+    if (!roomNumber || !roomNumber.trim()) {
+      return res.status(400).json({ error: "Room number is required" });
+    }
+    const normalizedRoom = roomNumber.trim();
+    const normalizedFloor = (floorNumber || "1").trim();
+    const existing = await pool.query("SELECT 1 FROM rooms WHERE LOWER(room_number) = LOWER($1)", [normalizedRoom]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Room number already exists" });
+    }
+    const result = await pool.query(
+      "INSERT INTO rooms (room_number, floor_number) VALUES ($1, $2) RETURNING *",
+      [normalizedRoom, normalizedFloor]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create room" });
+  }
+});
+
+app.put("/api/rooms/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'authority') {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+    const { id } = req.params;
+    const { roomNumber, floorNumber } = req.body;
+    if (!roomNumber || !roomNumber.trim()) {
+      return res.status(400).json({ error: "Room number is required" });
+    }
+    const normalizedRoom = roomNumber.trim();
+    const normalizedFloor = (floorNumber || "1").trim();
+    const existing = await pool.query(
+      "SELECT 1 FROM rooms WHERE LOWER(room_number) = LOWER($1) AND id != $2",
+      [normalizedRoom, id]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Room number already exists" });
+    }
+    const result = await pool.query(
+      "UPDATE rooms SET room_number = $1, floor_number = $2 WHERE id = $3 RETURNING *",
+      [normalizedRoom, normalizedFloor, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update room" });
+  }
+});
+
+app.delete("/api/rooms/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'authority') {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM rooms WHERE id = $1 RETURNING *", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+    res.json({ message: "Room deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete room" });
+  }
+});
+
+
 // Start server
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000;
 
 (async () => {
   await initializeDatabase();
