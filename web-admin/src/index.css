@@ -697,6 +697,14 @@
   background-color: rgba(245, 158, 11, 0.1) !important;
 }
 
+.app-dark-theme .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+.app-dark-theme .border-indigo-200 {
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
 
 
 
