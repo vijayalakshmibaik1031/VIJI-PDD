@@ -13,6 +13,7 @@ const mailTransporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
   secure: true,
+  family: 4, // Force IPv4 to resolve ENETUNREACH on cloud environments
   auth: {
     user: "vijayalakshmibai0686@gmail.com",
     pass: "mvolzegmmjoqmzqw"
