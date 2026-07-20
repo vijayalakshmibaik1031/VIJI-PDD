@@ -14,10 +14,6 @@ export default function Register() {
 
   const handleGoogleCredentialResponse = async (response) => {
     setError('');
-    if (!response || !response.credential) {
-      setError('Google did not return a valid authentication token');
-      return;
-    }
     setLoading(true);
     try {
       await loginWithGoogle(response.credential);
@@ -118,7 +114,7 @@ export default function Register() {
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-xl p-8 shadow-2xl text-white">
         <h1 data-testid="registerTitle" className="mb-1 text-3xl font-extrabold text-white tracking-tight">Employee Registration</h1>
         <p className="mb-6 text-sm text-slate-400">Manager and authority use fixed system accounts.</p>
-        
+
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-slate-200">Name</label>
@@ -179,7 +175,7 @@ export default function Register() {
         </div>
 
         {error ? <p data-testid="registerError" className="mt-4 text-sm text-red-400 font-semibold">{error}</p> : null}
-        
+
         <button
           data-testid="registerSubmit"
           type="submit"
@@ -197,7 +193,7 @@ export default function Register() {
         <div className="flex justify-center">
           <div id="google-register-btn" className="w-full"></div>
         </div>
-        
+
         <p className="mt-6 text-sm text-slate-400 text-center">
           Back to <Link data-testid="backToLoginLink" to="/" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">Login</Link>
         </p>

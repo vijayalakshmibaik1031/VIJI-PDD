@@ -226,6 +226,7 @@ export const apiService = {
   loginWithGoogle: (credential) =>
     apiFetch(`${API_URL}/auth/google`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
     }),
 };
