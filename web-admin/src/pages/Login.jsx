@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const params = useParams();
 
@@ -16,6 +16,10 @@ export default function Login() {
 
   const handleGoogleCredentialResponse = async (response) => {
     setError('');
+    if (!response || !response.credential) {
+      setError('Google did not return a valid authentication token');
+      return;
+    }
     try {
       await loginWithGoogle(response.credential);
       navigate('/employee/raise', { replace: true });
@@ -45,6 +49,32 @@ export default function Login() {
   };
 
   useEffect(() => {
+    // Check if redirect contains verification token session payload or error
+    const hash = window.location.hash;
+    if (hash.includes('?')) {
+      const queryString = hash.split('?')[1];
+      const urlParams = new URLSearchParams(queryString);
+      const token = urlParams.get('token');
+      const paramUserId = urlParams.get('userId');
+      const name = urlParams.get('name');
+      const username = urlParams.get('username');
+      const errorMsg = urlParams.get('error');
+
+      if (errorMsg) {
+        setError(decodeURIComponent(errorMsg));
+      } else if (token && paramUserId && name) {
+        loginWithToken(token, {
+          role: 'employee',
+          userId: paramUserId,
+          name,
+          username: username || '',
+          needsSetup: false,
+        });
+        navigate('/employee/raise', { replace: true });
+        return;
+      }
+    }
+
     setError('');
 
     if (role === 'employee') {

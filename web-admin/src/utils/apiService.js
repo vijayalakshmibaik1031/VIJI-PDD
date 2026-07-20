@@ -55,11 +55,11 @@ async function apiFetch(url, options = {}) {
 export const apiService = {
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  registerEmployee: (id, name, password) =>
+  registerEmployee: (id, name, username, password) =>
     apiFetch(`${API_URL}/employees/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, name, password }),
+      body: JSON.stringify({ id, name, username, password }),
     }),
 
   loginEmployee: (userId, password) =>

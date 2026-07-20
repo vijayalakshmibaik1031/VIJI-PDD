@@ -27,15 +27,20 @@ export function AuthProvider({ children }) {
     }
   }, [session]);
 
-  const registerEmployee = async ({ id, name, password }) => {
+  const registerEmployee = async ({ id, name, username, password }) => {
     try {
       setError(null);
-      await apiService.registerEmployee(id, name, password);
+      await apiService.registerEmployee(id, name, username, password);
       return true;
     } catch (err) {
       setError(err.message);
       throw err;
     }
+  };
+
+  const loginWithToken = (token, sessionData) => {
+    setToken(token);
+    setSession(sessionData);
   };
 
   // Manager and authority registration is disabled — fixed system accounts only
@@ -118,6 +123,7 @@ export function AuthProvider({ children }) {
       registerAuthority,
       login,
       loginWithGoogle,
+      loginWithToken,
       updateEmployeeProfile,
       logout,
     }),

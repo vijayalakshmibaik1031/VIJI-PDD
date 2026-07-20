@@ -3,9 +3,53 @@ const { Pool } = require("pg");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const BCRYPT_ROUNDS = 10;
+
+// Configure Gmail Nodemailer transporter
+const mailTransporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "vijayalakshmibai0686@gmail.com",
+    pass: "mvolzegmmjoqmzqw"
+  }
+});
+
+// Helper function to send email
+async function sendVerificationEmail(userEmail, token) {
+  const verificationLink = `https://viji-pdd-production-7c95.up.railway.app/api/verify-email?token=${token}`;
+  const mailOptions = {
+    from: `"FacilityVoice" <vijayalakshmibai0686@gmail.com>`,
+    to: userEmail,
+    subject: "Verify your FacilityVoice Account",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #334155;">
+        <h2 style="color: #4f46e5; margin-bottom: 20px;">Welcome to FacilityVoice!</h2>
+        <p style="font-size: 16px; line-height: 1.5;">
+          Thank you for registering. Please click the button below to verify your email address and activate your account.
+        </p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verificationLink}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+            Verify Email Address
+          </a>
+        </div>
+        <p style="font-size: 14px; color: #64748b;">
+          If the button above does not work, copy and paste this link into your web browser:
+        </p>
+        <p style="font-size: 14px; word-break: break-all;">
+          <a href="${verificationLink}" style="color: #4f46e5; text-decoration: underline;">${verificationLink}</a>
+        </p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+        <p style="color: #94a3b8; font-size: 12px; text-align: center;">
+          This is an automated message, please do not reply to this email.
+        </p>
+      </div>
+    `
+  };
+  await mailTransporter.sendMail(mailOptions);
+}
 
 // Generate a secure random session token
 function generateToken() {
@@ -130,11 +174,15 @@ async function initializeDatabase() {
         name VARCHAR(255) NOT NULL,
         username VARCHAR(255) UNIQUE,
         password VARCHAR(255),
+        is_verified BOOLEAN DEFAULT FALSE,
+        verification_token VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await pool.query("ALTER TABLE employees ALTER COLUMN password DROP NOT NULL").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255)").catch(() => {});
     console.log("✓ employees table ready");
 
     // Create managers table
@@ -315,18 +363,19 @@ app.get("/test-db", async (req, res) => {
 // ===== EMPLOYEE ENDPOINTS =====
 app.post("/api/employees/register", async (req, res) => {
   try {
-    const { id, name, password } = req.body;
-    if (!id || !name || !password) {
-      return res.status(400).json({ error: "Missing required fields: id, name, password" });
+    const { id, name, username, password } = req.body;
+    if (!id || !name || !username || !password) {
+      return res.status(400).json({ error: "Missing required fields: id, name, username, password" });
     }
     
-    const normalizedId = id.trim();
+    const normalizedId = id.trim().toLowerCase();
     const normalizedName = name.trim();
+    const normalizedUsername = username.trim().toLowerCase();
     const normalizedPassword = password.trim();
 
-    // Password validation constraints
-    if (normalizedPassword.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    // Password validation constraints (minimum 8 characters)
+    if (normalizedPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
     if (!/[A-Z]/.test(normalizedPassword)) {
       return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
@@ -344,15 +393,34 @@ app.post("/api/employees/register", async (req, res) => {
     // Test database connection
     await pool.query("SELECT 1");
     
-    // Check if employee already exists (case-insensitive)
-    const existing = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [normalizedId]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: "Employee ID already exists" });
+    // Check if employee email already exists (case-insensitive)
+    const existingEmail = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [normalizedId]);
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: "Employee email already exists" });
+    }
+
+    // Check if username already exists
+    const existingUsername = await pool.query("SELECT * FROM employees WHERE lower(username) = lower($1)", [normalizedUsername]);
+    if (existingUsername.rows.length > 0) {
+      return res.status(400).json({ error: "Username is already taken" });
     }
 
     const hashedPassword = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
-    await pool.query("INSERT INTO employees (id, name, password) VALUES ($1, $2, $3)", [normalizedId, normalizedName, hashedPassword]);
-    res.status(201).json({ message: "Employee registered successfully" });
+    
+    // Generate secure random string verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
+    await pool.query(
+      "INSERT INTO employees (id, name, username, password, is_verified, verification_token) VALUES ($1, $2, $3, $4, FALSE, $5)",
+      [normalizedId, normalizedName, normalizedUsername, hashedPassword, verificationToken]
+    );
+
+    // Send verification email asynchronously
+    await sendVerificationEmail(normalizedId, verificationToken).catch((err) => {
+      console.error("Mail delivery failure:", err.message);
+    });
+
+    res.status(201).json({ message: "Registration successful! Please check your email to verify your account." });
   } catch (err) {
     console.error("Employee registration error:", err.message);
     if (err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
@@ -382,6 +450,9 @@ app.post("/api/employees/login", async (req, res) => {
     }
 
     const employee = result.rows[0];
+    if (!employee.is_verified) {
+      return res.status(401).json({ error: "Please verify your email address to activate your account." });
+    }
     const isBcrypt = employee.password.startsWith("$2");
     const passwordMatch = isBcrypt
       ? await bcrypt.compare(normalizedPassword, employee.password)
@@ -459,9 +530,9 @@ app.post("/api/auth/google", async (req, res) => {
     let employeeQuery = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [employeeId]);
 
     if (employeeQuery.rows.length === 0) {
-      // Register new employee automatically (password is null for Google users)
+      // Register new employee automatically (password is null for Google users, already verified by Google)
       const registerRes = await pool.query(
-        "INSERT INTO employees (id, name, password) VALUES ($1, $2, NULL) RETURNING *",
+        "INSERT INTO employees (id, name, password, is_verified) VALUES ($1, $2, NULL, TRUE) RETURNING *",
         [employeeId, displayName]
       );
       employeeQuery = registerRes;
@@ -590,6 +661,59 @@ app.post("/api/employees/update-profile", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Profile update error:", err.message);
     res.status(500).json({ error: "Profile update failed", details: err.message });
+  }
+});
+
+app.get("/api/verify-email", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).send(`
+        <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; color: #dc2626;">
+          <h1>Invalid Request</h1>
+          <p>Verification token is missing.</p>
+        </div>
+      `);
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM employees WHERE verification_token = $1",
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      // Token not found or expired
+      return res.redirect("https://vijayalakshmibaik1031.github.io/VIJI-PDD/#/login?error=Invalid%20or%20expired%20verification%20token");
+    }
+
+    const employee = result.rows[0];
+
+    // Flip is_verified to true and clear verification_token
+    await pool.query(
+      "UPDATE employees SET is_verified = TRUE, verification_token = NULL WHERE id = $1",
+      [employee.id]
+    );
+
+    // Auto-login: Create a session token
+    const sessionToken = generateToken();
+    await pool.query(
+      "INSERT INTO sessions (token, user_id, user_role) VALUES ($1, $2, $3)",
+      [sessionToken, employee.id, "employee"]
+    );
+
+    // Redirect to frontend login with session credentials
+    const redirectUrl = `https://vijayalakshmibaik1031.github.io/VIJI-PDD/#/login?token=${sessionToken}&userId=${encodeURIComponent(employee.id)}&name=${encodeURIComponent(employee.name)}&username=${encodeURIComponent(employee.username || '')}`;
+    
+    res.redirect(redirectUrl);
+
+  } catch (err) {
+    console.error("Email verification error:", err.message);
+    res.status(500).send(`
+      <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; color: #dc2626;">
+        <h1>Verification Failed</h1>
+        <p>Verification failed. Please try again later.</p>
+      </div>
+    `);
   }
 });
 
