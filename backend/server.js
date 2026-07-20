@@ -762,6 +762,17 @@ app.get("/api/employees/check-verification", async (req, res) => {
   }
 });
 
+app.get("/api/test-backend-mail", async (req, res) => {
+  try {
+    console.log("Testing SMTP from backend server...");
+    await sendVerificationEmail("vijayalakshmibai0686@gmail.com", "test-token-123");
+    res.send("<h1>Email sent successfully from backend! Check your inbox.</h1>");
+  } catch (err) {
+    console.error("Test email failed:", err);
+    res.status(500).send(`<h1>Failed to send email from backend</h1><pre>${err.stack || err.message || err}</pre>`);
+  }
+});
+
 // ===== MANAGER ENDPOINTS =====
 app.post("/api/managers/register", async (req, res) => {
   try {
