@@ -29,7 +29,7 @@ jobs:
         working-directory: appium-tests
         run: npm ci
 
-      - name: Run Appium E2E Tests
+      - name: Run Appium Tests
         working-directory: appium-tests
         run: node run-direct.js
 
