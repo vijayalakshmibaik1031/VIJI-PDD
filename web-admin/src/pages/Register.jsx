@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
-  const { registerEmployee, login } = useAuth();
+  const { registerEmployee, login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [id, setId] = useState('');
@@ -11,6 +11,64 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleCredentialResponse = async (response) => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(response.credential);
+      navigate('/employee/raise', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Google registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const initializeGoogleSignIn = () => {
+    if (!window.google) return;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '359317502287-mockid.apps.googleusercontent.com';
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleCredentialResponse,
+    });
+
+    const btnContainer = document.getElementById('google-register-btn');
+    if (btnContainer) {
+      window.google.accounts.id.renderButton(btnContainer, {
+        theme: 'filled_blue',
+        size: 'large',
+        width: 384,
+        text: 'signup_with',
+        shape: 'pill',
+      });
+    }
+  };
+
+  useEffect(() => {
+    const scriptId = 'google-gis-script';
+    let script = document.getElementById(scriptId);
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.id = scriptId;
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+
+    script.onload = () => {
+      initializeGoogleSignIn();
+    };
+
+    const timer = setTimeout(() => {
+      if (window.google) {
+        initializeGoogleSignIn();
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -126,6 +184,15 @@ export default function Register() {
         >
           {loading ? 'Creating Account...' : 'Create Account'}
         </button>
+
+        <div className="my-4 flex items-center justify-between">
+          <span className="w-1/5 border-b border-slate-700"></span>
+          <span className="text-xs uppercase text-slate-400 font-semibold">Or continue with</span>
+          <span className="w-1/5 border-b border-slate-700"></span>
+        </div>
+        <div className="flex justify-center">
+          <div id="google-register-btn" className="w-full"></div>
+        </div>
         
         <p className="mt-6 text-sm text-slate-400 text-center">
           Back to <Link data-testid="backToLoginLink" to="/" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">Login</Link>

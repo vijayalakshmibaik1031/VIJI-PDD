@@ -222,4 +222,10 @@ export const apiService = {
       method: 'DELETE',
       headers: authHeaders(),
     }),
+
+  loginWithGoogle: (credential) =>
+    apiFetch(`${API_URL}/auth/google`, {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    }),
 };

@@ -73,6 +73,20 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async (credential) => {
+    try {
+      setError(null);
+      const response = await apiService.loginWithGoogle(credential);
+      setToken(response.token);
+      const sessionData = response.session;
+      setSession(sessionData);
+      return sessionData;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const logout = async () => {
     // Tell the server to invalidate the token
     await apiService.logout();
@@ -90,6 +104,7 @@ export function AuthProvider({ children }) {
       registerManager,
       registerAuthority,
       login,
+      loginWithGoogle,
       logout,
     }),
     [session, error],
