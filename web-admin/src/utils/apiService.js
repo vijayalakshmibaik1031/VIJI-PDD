@@ -229,4 +229,11 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credential }),
     }),
+
+  updateEmployeeProfile: (payload) =>
+    apiFetch(`${API_URL}/employees/update-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    }),
 };

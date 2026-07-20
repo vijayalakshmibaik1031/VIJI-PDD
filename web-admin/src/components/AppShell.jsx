@@ -202,9 +202,159 @@ function NativeLayout({ title, links, session, logout }) {
 export default function AppShell({ title, links }) {
   const { logout, session } = useAuth();
 
+  if (session && session.role === 'employee' && session.needsSetup) {
+    return <EmployeeSetupCredentials logout={logout} />;
+  }
+
   if (isNative) {
     return <NativeLayout title={title} links={links} session={session} logout={logout} />;
   }
 
   return <WebLayout title={title} links={links} session={session} logout={logout} />;
+}
+
+// First-time credentials setup screen for Google OAuth employees
+function EmployeeSetupCredentials({ logout }) {
+  const { updateEmployeeProfile } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (username.trim().length < 3) {
+      setError('Username must be at least 3 characters long');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // Password validation constraints (minimum 8 characters)
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one numeric digit');
+      return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      setError('Password must contain at least one special character/symbol');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateEmployeeProfile({ username: username.trim(), password });
+    } catch (err) {
+      setError(err.message || 'Setup failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 sm:px-6 py-12 text-white">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-xl p-8 shadow-2xl">
+        <h1 className="mb-2 text-2xl font-extrabold tracking-tight">Setup Account Login</h1>
+        <p className="mb-6 text-sm text-slate-400">
+          Since you signed in via Google, please configure a username and password to log in manually next time.
+        </p>
+
+        {error && (
+          <p className="mb-4 text-xs text-red-400 font-semibold bg-red-950/40 border border-red-900/40 rounded-lg p-2">
+            ⚠️ {error}
+          </p>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wider pl-1">
+              Choose Username
+            </label>
+            <input
+              type="text"
+              className="w-full bg-slate-800/85 border border-slate-700/85 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-4 py-3 placeholder:text-slate-500 transition duration-200 text-sm"
+              placeholder="e.g. alex_123"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wider pl-1">
+              Set Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="w-full bg-slate-800/85 border border-slate-700/85 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-4 pr-12 py-3 placeholder:text-slate-500 transition duration-200 text-sm"
+                placeholder="Minimum 8 characters (A-Z, a-z, 0-9, symbol)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition duration-200 text-xs font-semibold"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-300 uppercase tracking-wider pl-1">
+              Confirm Password
+            </label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className="w-full bg-slate-800/85 border border-slate-700/85 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-4 py-3 placeholder:text-slate-500 transition duration-200 text-sm"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={loading}
+              required
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-6 w-full rounded-xl bg-indigo-600 py-3 text-white font-semibold hover:bg-indigo-500 hover:shadow-indigo-500/20 hover:shadow-lg transition-all duration-200 disabled:opacity-50 text-sm"
+        >
+          {loading ? 'Saving Setup...' : 'Complete Setup'}
+        </button>
+
+        <button
+          type="button"
+          onClick={logout}
+          className="mt-3 w-full rounded-xl border border-slate-700 bg-transparent py-2.5 text-slate-350 font-semibold hover:bg-white/5 transition duration-200 text-xs"
+        >
+          Cancel & Logout
+        </button>
+      </form>
+    </div>
+  );
 }

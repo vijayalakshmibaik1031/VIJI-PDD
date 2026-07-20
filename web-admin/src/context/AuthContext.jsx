@@ -87,6 +87,19 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateEmployeeProfile = async (payload) => {
+    try {
+      setError(null);
+      const response = await apiService.updateEmployeeProfile(payload);
+      const sessionData = response.session;
+      setSession(sessionData);
+      return sessionData;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const logout = async () => {
     // Tell the server to invalidate the token
     await apiService.logout();
@@ -105,6 +118,7 @@ export function AuthProvider({ children }) {
       registerAuthority,
       login,
       loginWithGoogle,
+      updateEmployeeProfile,
       logout,
     }),
     [session, error],

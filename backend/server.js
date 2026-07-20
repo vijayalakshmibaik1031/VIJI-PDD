@@ -128,11 +128,13 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS employees (
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
+        username VARCHAR(255) UNIQUE,
         password VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await pool.query("ALTER TABLE employees ALTER COLUMN password DROP NOT NULL").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE").catch(() => {});
     console.log("✓ employees table ready");
 
     // Create managers table
@@ -374,7 +376,7 @@ app.post("/api/employees/login", async (req, res) => {
     const normalizedUserId = userId.trim();
     const normalizedPassword = password.trim();
 
-    const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [normalizedUserId]);
+    const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1) OR lower(username) = lower($1)", [normalizedUserId]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "user not found" });
     }
@@ -408,6 +410,8 @@ app.post("/api/employees/login", async (req, res) => {
         role: "employee",
         userId: employee.id,
         name: employee.name,
+        username: employee.username || "",
+        needsSetup: !employee.password
       },
     });
   } catch (err) {
@@ -480,6 +484,8 @@ app.post("/api/auth/google", async (req, res) => {
         role: "employee",
         userId: employee.id,
         name: employee.name,
+        username: employee.username || "",
+        needsSetup: !employee.password
       },
     });
 
@@ -496,6 +502,94 @@ app.get("/api/employees", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch employees" });
+  }
+});
+
+app.post("/api/employees/update-profile", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'employee') {
+      return res.status(403).json({ error: "Forbidden: Employee role required" });
+    }
+    const { username, password, name } = req.body;
+    const employeeId = req.user.userId;
+
+    let updateQuery = "UPDATE employees SET ";
+    const params = [];
+    let paramIndex = 1;
+
+    if (name && name.trim()) {
+      updateQuery += `name = $${paramIndex}, `;
+      params.push(name.trim());
+      paramIndex++;
+    }
+
+    if (username && username.trim()) {
+      const normalizedUsername = username.trim().toLowerCase();
+      // Check if username is already taken by another user
+      const existing = await pool.query(
+        "SELECT 1 FROM employees WHERE (lower(username) = lower($1) OR lower(id) = lower($1)) AND lower(id) != lower($2)",
+        [normalizedUsername, employeeId.toLowerCase()]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: "Username is already taken" });
+      }
+      updateQuery += `username = $${paramIndex}, `;
+      params.push(normalizedUsername);
+      paramIndex++;
+    }
+
+    if (password && password.trim()) {
+      const normalizedPassword = password.trim();
+      if (normalizedPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      }
+      if (!/[A-Z]/.test(normalizedPassword)) {
+        return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+      }
+      if (!/[a-z]/.test(normalizedPassword)) {
+        return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
+      }
+      if (!/[0-9]/.test(normalizedPassword)) {
+        return res.status(400).json({ error: "Password must contain at least one numeric digit" });
+      }
+      if (!/[^a-zA-Z0-9]/.test(normalizedPassword)) {
+        return res.status(400).json({ error: "Password must contain at least one special character/symbol" });
+      }
+
+      const hashedPassword = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
+      updateQuery += `password = $${paramIndex}, `;
+      params.push(hashedPassword);
+      paramIndex++;
+    }
+
+    // Remove trailing comma and space
+    if (params.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    updateQuery = updateQuery.slice(0, -2);
+    updateQuery += ` WHERE id = $${paramIndex} RETURNING *`;
+    params.push(employeeId);
+
+    const result = await pool.query(updateQuery, params);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    const updatedEmployee = result.rows[0];
+    res.json({
+      message: "Profile updated successfully",
+      session: {
+        role: "employee",
+        userId: updatedEmployee.id,
+        name: updatedEmployee.name,
+        username: updatedEmployee.username || "",
+        needsSetup: false
+      }
+    });
+
+  } catch (err) {
+    console.error("Profile update error:", err.message);
+    res.status(500).json({ error: "Profile update failed", details: err.message });
   }
 });
 
