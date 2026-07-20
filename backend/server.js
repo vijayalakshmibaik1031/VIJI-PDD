@@ -53,6 +53,10 @@ async function sendVerificationEmail(userEmail, token) {
       </div>
     `
   };
+  console.log("=================================================");
+  console.log(`[EMAIL SENDING TO: ${userEmail}]`);
+  console.log(`Verification URL: ${verificationLink}`);
+  console.log("=================================================");
   await mailTransporter.sendMail(mailOptions);
 }
 
