@@ -14,6 +14,10 @@ export default function Register() {
 
   const handleGoogleCredentialResponse = async (response) => {
     setError('');
+    if (!response || !response.credential) {
+      setError('Google did not return a valid authentication token');
+      return;
+    }
     setLoading(true);
     try {
       await loginWithGoogle(response.credential);

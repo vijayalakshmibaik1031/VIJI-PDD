@@ -16,6 +16,10 @@ export default function Login() {
 
   const handleGoogleCredentialResponse = async (response) => {
     setError('');
+    if (!response || !response.credential) {
+      setError('Google did not return a valid authentication token');
+      return;
+    }
     try {
       await loginWithGoogle(response.credential);
       navigate('/employee/raise', { replace: true });
