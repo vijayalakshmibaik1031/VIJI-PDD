@@ -68,6 +68,7 @@ export function ComplaintProvider({ children }) {
         : complaint.rejection_history || complaint.rejectionHistory || [],
     visibility: complaint.visibility || 'private',
     createdAt: complaint.created_at || complaint.createdAt,
+    endorsedBy: safeParse(complaint.endorsed_by || complaint.endorsedBy),
   });
 
   const safeParse = (value) => {
@@ -344,6 +345,39 @@ export function ComplaintProvider({ children }) {
     }, {})
   ).filter((group) => new Set(group.complaints.map((complaint) => complaint.employeeId)).size >= 5);
 
+  const raiseComplaintToPublic = async (id) => {
+    try {
+      setError(null);
+      await apiService.raiseComplaintToPublic(id);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const endorseIndividualComplaint = async (id, employeeId) => {
+    try {
+      setError(null);
+      await apiService.endorseComplaint(id, employeeId);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const completeMergedComplaint = async (id, description, photoUri) => {
+    try {
+      setError(null);
+      await apiService.completeMergedGroup(id, description, photoUri);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const value = useMemo(
     () => ({
       complaints,
@@ -368,6 +402,9 @@ export function ComplaintProvider({ children }) {
       createRoom,
       updateRoom,
       deleteRoom,
+      raiseComplaintToPublic,
+      endorseIndividualComplaint,
+      completeMergedComplaint,
       status: STATUS,
       visibility: VISIBILITY,
     }),

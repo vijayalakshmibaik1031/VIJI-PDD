@@ -320,6 +320,18 @@ async function initializeDatabase() {
     `);
     console.log("✓ re_complaints table ready");
 
+    // Create complaint_endorsements table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS complaint_endorsements (
+        complaint_id VARCHAR(255) NOT NULL,
+        employee_id VARCHAR(255) NOT NULL,
+        endorsed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (complaint_id, employee_id),
+        FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
+      )
+    `);
+    console.log("✓ complaint_endorsements table ready");
+
     // Create sessions table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sessions (
@@ -1290,7 +1302,13 @@ app.post("/api/complaints", requireAuth, async (req, res) => {
 
 app.get("/api/complaints", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM complaints ORDER BY created_at DESC");
+    const result = await pool.query(
+      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+       FROM complaints c
+       LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       GROUP BY c.id
+       ORDER BY c.created_at DESC`
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -1301,7 +1319,14 @@ app.get("/api/complaints", requireAuth, async (req, res) => {
 app.get("/api/complaints/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("SELECT * FROM complaints WHERE id = $1", [id]);
+    const result = await pool.query(
+      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+       FROM complaints c
+       LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       WHERE c.id = $1
+       GROUP BY c.id`,
+      [id]
+    );
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Complaint not found" });
@@ -1318,7 +1343,12 @@ app.get("/api/complaints/employee/:employeeId", requireAuth, async (req, res) =>
   try {
     const { employeeId } = req.params;
     const result = await pool.query(
-      "SELECT * FROM complaints WHERE employee_id = $1 ORDER BY created_at DESC",
+      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+       FROM complaints c
+       LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       WHERE c.employee_id = $1
+       GROUP BY c.id
+       ORDER BY c.created_at DESC`,
       [employeeId]
     );
     res.json(result.rows);
@@ -1438,6 +1468,71 @@ app.patch("/api/complaints/:id/escalate", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to escalate complaint" });
+  }
+});
+
+// PATCH /api/complaints/:id/raise-to-public (Manager only/Authority)
+app.patch("/api/complaints/:id/raise-to-public", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "UPDATE complaints SET visibility = 'public' WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Complaint not found" });
+    }
+
+    res.json({ message: "Complaint raised to public successfully" });
+  } catch (err) {
+    console.error("Raise to public error:", err.message);
+    res.status(500).json({ error: "Failed to raise complaint to public", details: err.message });
+  }
+});
+
+// POST /api/complaints/:id/endorse (Employees)
+app.post("/api/complaints/:id/endorse", requireAuth, async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    const { id } = req.params;
+    if (!employeeId) return res.status(400).json({ error: "employeeId required" });
+
+    const complaintResult = await pool.query("SELECT * FROM complaints WHERE id = $1", [id]);
+    if (complaintResult.rows.length === 0) return res.status(404).json({ error: "Complaint not found" });
+
+    // Insert into complaint_endorsements table
+    const insertResult = await pool.query(
+      `INSERT INTO complaint_endorsements (complaint_id, employee_id)
+       VALUES ($1, $2)
+       ON CONFLICT (complaint_id, employee_id) DO NOTHING`,
+      [id, employeeId],
+    );
+
+    if (insertResult.rowCount === 0) {
+      return res.status(400).json({ error: "Already endorsed" });
+    }
+
+    // Fetch updated endorsements list
+    const endorsementsResult = await pool.query(
+      "SELECT employee_id FROM complaint_endorsements WHERE complaint_id = $1 ORDER BY employee_id",
+      [id],
+    );
+    const endorsedBy = endorsementsResult.rows.map((row) => row.employee_id);
+
+    // Auto-escalate individual public complaints at 10+ endorsements
+    if (endorsedBy.length >= 10) {
+      await pool.query(
+        `UPDATE complaints SET status = 'escalated', escalation_description = $1
+         WHERE id = $2 AND status NOT IN ('escalated', 'completed', 'acknowledged')`,
+        [`Auto-escalated: public complaint received ${endorsedBy.length} endorsements`, id]
+      );
+    }
+
+    res.json({ message: "Endorsed successfully", endorsedBy });
+  } catch (err) {
+    console.error("Endorsement error:", err.message);
+    res.status(500).json({ error: "Failed to endorse complaint", details: err.message });
   }
 });
 
@@ -1682,14 +1777,68 @@ app.patch("/api/merged-groups/:id/escalate", requireAuth, async (req, res) => {
 app.patch("/api/merged-groups/:id/acknowledge", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Update merged group status
     await pool.query(
       "UPDATE merged_groups SET status = $1 WHERE id = $2",
       ["acknowledged", id],
     );
+
+    // Fetch the constituent complaints of this merged group
+    const groupQuery = await pool.query("SELECT constituent_complaint_ids FROM merged_groups WHERE id = $1", [id]);
+    if (groupQuery.rows.length > 0) {
+      const complaintIds = groupQuery.rows[0].constituent_complaint_ids;
+      const idsArray = typeof complaintIds === 'string' ? JSON.parse(complaintIds) : complaintIds;
+      
+      if (Array.isArray(idsArray) && idsArray.length > 0) {
+        // Update all constituent complaints' status to 'acknowledged'
+        await pool.query(
+          "UPDATE complaints SET status = 'acknowledged' WHERE id = ANY($1::text[])",
+          [idsArray]
+        );
+      }
+    }
+
     res.json({ message: "Merged group acknowledged" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to acknowledge merged group", details: err.message });
+  }
+});
+
+app.patch("/api/merged-groups/:id/complete", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const description = req.body.completionDescription ?? "Resolved by Authority";
+    const photoUri = req.body.completionPhotoUri ?? null;
+
+    // Update merged group status to completed
+    await pool.query(
+      "UPDATE merged_groups SET status = $1 WHERE id = $2",
+      ["completed", id]
+    );
+
+    // Fetch constituent complaints
+    const groupQuery = await pool.query("SELECT constituent_complaint_ids FROM merged_groups WHERE id = $1", [id]);
+    if (groupQuery.rows.length > 0) {
+      const complaintIds = groupQuery.rows[0].constituent_complaint_ids;
+      const idsArray = typeof complaintIds === 'string' ? JSON.parse(complaintIds) : complaintIds;
+      
+      if (Array.isArray(idsArray) && idsArray.length > 0) {
+        // Complete all constituent complaints
+        await pool.query(
+          `UPDATE complaints 
+           SET status = $1, completion_description = $2, completion_photo_uri = $3, completed_at = NOW()
+           WHERE id = ANY($4::text[])`,
+          ["completed", description, photoUri, idsArray]
+        );
+      }
+    }
+
+    res.json({ message: "Merged group completed successfully" });
+  } catch (err) {
+    console.error("Merged group completion error:", err.message);
+    res.status(500).json({ error: "Failed to complete merged group", details: err.message });
   }
 });
 

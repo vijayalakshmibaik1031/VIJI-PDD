@@ -284,4 +284,24 @@ export const apiService = {
       method: 'DELETE',
       headers: authHeaders(),
     }),
+
+  raiseComplaintToPublic: (id) =>
+    apiFetch(`${API_URL}/complaints/${id}/raise-to-public`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+    }),
+
+  endorseComplaint: (id, employeeId) =>
+    apiFetch(`${API_URL}/complaints/${id}/endorse`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ employeeId }),
+    }),
+
+  completeMergedGroup: (id, description, photoUri) =>
+    apiFetch(`${API_URL}/merged-groups/${id}/complete`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ completionDescription: description, completionPhotoUri: photoUri }),
+    }),
 };

@@ -4,7 +4,7 @@ import { useComplaints } from '../../context/ComplaintContext';
 import { useToast } from '../../context/ToastContext';
 
 export default function ManagerPending() {
-  const { pendingUnmerged, updateComplaintStatus, rejectComplaint, getRejectionCount } = useComplaints();
+  const { pendingUnmerged, updateComplaintStatus, rejectComplaint, getRejectionCount, raiseComplaintToPublic } = useComplaints();
   const { showToast } = useToast();
   const [activeModal, setActiveModal] = useState(null);
   const [reasonText, setReasonText] = useState('');
@@ -103,6 +103,21 @@ export default function ManagerPending() {
                 >
                   {willEscalate ? 'Reject & Escalate' : 'Reject'}
                 </button>
+                {complaint.visibility === 'private' && (
+                  <button
+                    className="rounded bg-indigo-700 hover:bg-indigo-850 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
+                    onClick={async () => {
+                      try {
+                        await raiseComplaintToPublic(complaint.id);
+                        showToast('Complaint raised to public');
+                      } catch (err) {
+                        showToast(err.message || 'Failed to raise to public');
+                      }
+                    }}
+                  >
+                    Raise to Public
+                  </button>
+                )}
               </div>
             </div>
           );

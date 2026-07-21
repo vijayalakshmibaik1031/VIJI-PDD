@@ -207,7 +207,7 @@ export default function EmployeePrivate() {
 
             {/* Completed notice */}
             {isCompleted && (
-              <div className="mt-2 rounded border border-green-200 bg-green-50 p-2 text-xs text-slate-700">
+              <div className="mt-2 rounded border border-green-900/50 bg-green-950/30 p-2 text-xs text-green-400">
                 <p className="font-medium">
                   {latest.completionDescription
                     ? `Note: ${latest.completionDescription}`
