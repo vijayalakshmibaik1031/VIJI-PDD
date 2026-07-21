@@ -10,6 +10,7 @@ export default function ManagerLayout() {
         { label: 'Accepted / In Progress', to: '/manager/inprogress' },
         { label: 'Completed', to: '/manager/completed' },
         { label: 'All Complaints', to: '/manager/all' },
+        { label: 'Manage Employees', to: '/manager/employees' },
       ]}
     />
   );

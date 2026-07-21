@@ -66,6 +66,10 @@ export function AuthProvider({ children }) {
         throw new Error('Unknown role');
       }
 
+      if (response.needsPasswordReset) {
+        return response;
+      }
+
       // Store the token so apiService can attach it to future requests
       setToken(response.token);
 

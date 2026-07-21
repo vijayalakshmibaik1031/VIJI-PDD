@@ -65,7 +65,7 @@ export default function GetStarted() {
         </div>
 
         <div className="mt-12 text-center text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
-          All sign-ins require valid credentials. Employee registration is available via the employee sign-in page.
+          All sign-ins require valid credentials. Employees and managers are registered by their system administrators.
         </div>
       </div>
     </div>

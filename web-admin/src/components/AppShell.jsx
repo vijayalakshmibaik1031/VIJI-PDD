@@ -35,10 +35,12 @@ const ICON_MAP = {
   '/manager/inprogress': Loader,
   '/manager/completed':  CheckCircle,
   '/manager/all':        List,
+  '/manager/employees':  User,
   // Authority
   '/authority/overview':  LayoutDashboard,
   '/authority/all':       List,
   '/authority/escalated': AlertTriangle,
+  '/authority/users':     User,
 };
 
 /** Renders the icon for a nav link, falling back to the text label on error. */

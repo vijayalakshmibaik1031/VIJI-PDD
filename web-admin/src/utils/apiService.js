@@ -231,4 +231,45 @@ export const apiService = {
 
   checkVerificationStatus: (email) =>
     apiFetch(`${API_URL}/employees/check-verification?email=${encodeURIComponent(email)}`),
+
+  resetFirstPassword: (role, userId, email, newPassword) =>
+    apiFetch(`${API_URL}/auth/reset-first-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, userId, email, newPassword }),
+    }),
+
+  getManagers: () =>
+    apiFetch(`${API_URL}/managers`, { headers: authHeaders() }),
+
+  createManager: (id, name, email) =>
+    apiFetch(`${API_URL}/managers`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ id, name, email }),
+    }),
+
+  updateManager: (id, name, email) =>
+    apiFetch(`${API_URL}/managers/${id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ name, email }),
+    }),
+
+  getEmployees: () =>
+    apiFetch(`${API_URL}/employees`, { headers: authHeaders() }),
+
+  createEmployee: (id, name, email) =>
+    apiFetch(`${API_URL}/employees`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ id, name, email }),
+    }),
+
+  updateEmployee: (id, name, email) =>
+    apiFetch(`${API_URL}/employees/${id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ name, email }),
+    }),
 };

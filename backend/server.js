@@ -134,9 +134,9 @@ const pool = new Pool(poolConfig);
 // Seed manager and authority with hashed passwords (idempotent — safe to run every startup)
 async function seedStaticAccounts() {
   const accounts = [
-    { table: "managers",    id: "manager", name: "manager",    plainPassword: "man123"      },
-    { table: "authorities", id: "auth",    name: "auth",       plainPassword: "auth123"     },
-    { table: "employees",   id: "emp001",  name: "Employee 1", plainPassword: "Test@123456" },
+    { table: "managers",    id: "manager", name: "manager",    plainPassword: "man123", email: "manager@xyzcompany.com" },
+    { table: "authorities", id: "auth",    name: "auth",       plainPassword: "auth123" },
+    { table: "employees",   id: "emp001",  name: "Employee 1", plainPassword: "Test@123456", email: "employee1@xyzcompany.com" },
   ];
 
   for (const acc of accounts) {
@@ -147,10 +147,22 @@ async function seedStaticAccounts() {
     if (existing.rows.length === 0) {
       // Insert fresh with hashed password
       const hash = await bcrypt.hash(acc.plainPassword, BCRYPT_ROUNDS);
-      await pool.query(
-        `INSERT INTO ${acc.table} (id, name, password) VALUES ($1, $2, $3)`,
-        [acc.id, acc.name, hash]
-      );
+      if (acc.table === "authorities") {
+        await pool.query(
+          `INSERT INTO authorities (id, name, password) VALUES ($1, $2, $3)`,
+          [acc.id, acc.name, hash]
+        );
+      } else if (acc.table === "employees") {
+        await pool.query(
+          `INSERT INTO employees (id, name, password, email, is_verified, needs_password_reset) VALUES ($1, $2, $3, $4, TRUE, FALSE)`,
+          [acc.id, acc.name, hash, acc.email]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO ${acc.table} (id, name, password, email, needs_password_reset) VALUES ($1, $2, $3, $4, FALSE)`,
+          [acc.id, acc.name, hash, acc.email]
+        );
+      }
       console.log(`✓ Seeded ${acc.table} account: ${acc.id}`);
     } else {
       // If stored password is NOT a bcrypt hash, re-hash it
@@ -163,6 +175,14 @@ async function seedStaticAccounts() {
           [hash, acc.id]
         );
         console.log(`✓ Migrated plain-text password for ${acc.table}: ${acc.id}`);
+      }
+
+      // Ensure email and needs_password_reset are updated for static test accounts
+      if (acc.table !== "authorities") {
+        await pool.query(
+          `UPDATE ${acc.table} SET email = $1, needs_password_reset = FALSE WHERE id = $2`,
+          [acc.email, acc.id]
+        );
       }
     }
   }
@@ -183,15 +203,19 @@ async function initializeDatabase() {
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         username VARCHAR(255) UNIQUE,
+        email VARCHAR(255) UNIQUE,
         password VARCHAR(255),
         is_verified BOOLEAN DEFAULT FALSE,
         verification_token VARCHAR(255),
+        needs_password_reset BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255)").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     console.log("✓ employees table ready");
 
     // Create managers table
@@ -199,10 +223,14 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS managers (
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE,
         password VARCHAR(255) NOT NULL,
+        needs_password_reset BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
+    await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     console.log("✓ managers table ready");
 
     // Create authorities table
@@ -453,7 +481,7 @@ app.post("/api/employees/login", async (req, res) => {
     const normalizedUserId = userId.trim();
     const normalizedPassword = password.trim();
 
-    const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1) OR lower(username) = lower($1)", [normalizedUserId]);
+    const result = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1) OR lower(username) = lower($1) OR lower(email) = lower($1)", [normalizedUserId]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "user not found" });
     }
@@ -462,17 +490,27 @@ app.post("/api/employees/login", async (req, res) => {
     if (!employee.is_verified) {
       return res.status(401).json({ error: "Please verify your email address to activate your account." });
     }
-    const isBcrypt = employee.password.startsWith("$2");
+    const isBcrypt = employee.password && employee.password.startsWith("$2");
     const passwordMatch = isBcrypt
       ? await bcrypt.compare(normalizedPassword, employee.password)
-      : normalizedPassword === employee.password;
+      : employee.password ? (normalizedPassword === employee.password) : false;
 
     if (!passwordMatch) {
       return res.status(401).json({ error: "user not found" });
     }
 
+    // First time login password reset interception
+    if (employee.needs_password_reset) {
+      return res.json({
+        needsPasswordReset: true,
+        role: "employee",
+        userId: employee.id,
+        email: employee.email || ""
+      });
+    }
+
     // Migrate plain-text password to bcrypt on first login
-    if (!isBcrypt) {
+    if (!isBcrypt && employee.password) {
       const hashed = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
       await pool.query("UPDATE employees SET password = $1 WHERE id = $2", [hashed, employee.id]);
     }
@@ -491,6 +529,7 @@ app.post("/api/employees/login", async (req, res) => {
         userId: employee.id,
         name: employee.name,
         username: employee.username || "",
+        email: employee.email || "",
         needsSetup: !employee.password
       },
     });
@@ -503,7 +542,7 @@ app.post("/api/employees/login", async (req, res) => {
 
 app.get("/api/employees", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, created_at FROM employees ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, password, created_at FROM employees ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -745,22 +784,32 @@ app.post("/api/managers/login", async (req, res) => {
     const normalizedUserId = userId.trim();
     const normalizedPassword = password.trim();
 
-    const result = await pool.query("SELECT * FROM managers WHERE lower(id) = lower($1)", [normalizedUserId]);
+    const result = await pool.query("SELECT * FROM managers WHERE lower(id) = lower($1) OR lower(email) = lower($1)", [normalizedUserId]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "Invalid manager credentials" });
     }
 
     const manager = result.rows[0];
-    const isBcrypt = manager.password.startsWith("$2");
+    const isBcrypt = manager.password && manager.password.startsWith("$2");
     const passwordMatch = isBcrypt
       ? await bcrypt.compare(normalizedPassword, manager.password)
-      : normalizedPassword === manager.password;
+      : manager.password ? (normalizedPassword === manager.password) : false;
 
     if (!passwordMatch) {
       return res.status(401).json({ error: "Invalid manager credentials" });
     }
 
-    if (!isBcrypt) {
+    // First time login password reset interception
+    if (manager.needs_password_reset) {
+      return res.json({
+        needsPasswordReset: true,
+        role: "manager",
+        userId: manager.id,
+        email: manager.email || ""
+      });
+    }
+
+    if (!isBcrypt && manager.password) {
       const hashed = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
       await pool.query("UPDATE managers SET password = $1 WHERE id = $2", [hashed, manager.id]);
     }
@@ -778,6 +827,7 @@ app.post("/api/managers/login", async (req, res) => {
         role: "manager",
         userId: manager.id,
         name: manager.name,
+        email: manager.email || ""
       },
     });
   } catch (err) {
@@ -788,11 +838,274 @@ app.post("/api/managers/login", async (req, res) => {
 
 app.get("/api/managers", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, created_at FROM managers ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, password, created_at FROM managers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch managers" });
+  }
+});
+
+// ===== USER MANAGEMENT & PASSWORD RESET ENDPOINTS =====
+
+// POST /api/auth/reset-first-password
+app.post("/api/auth/reset-first-password", async (req, res) => {
+  try {
+    const { role, userId, email, newPassword } = req.body;
+    if (!role || !userId || !email || !newPassword) {
+      return res.status(400).json({ error: "Missing required fields: role, userId, email, newPassword" });
+    }
+
+    if (role !== "employee" && role !== "manager") {
+      return res.status(400).json({ error: "Invalid role for first-time password reset" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUserId = userId.trim();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Validate new password rules (min 8 chars, uppercase, lowercase, numeric, special)
+    const normalizedPassword = newPassword.trim();
+    if (normalizedPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+    if (!/[A-Z]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+    }
+    if (!/[a-z]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
+    }
+    if (!/[0-9]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one numeric digit" });
+    }
+    if (!/[^a-zA-Z0-9]/.test(normalizedPassword)) {
+      return res.status(400).json({ error: "Password must contain at least one special character/symbol" });
+    }
+
+    const table = role === "employee" ? "employees" : "managers";
+    const userQuery = await pool.query(
+      `SELECT * FROM ${table} WHERE lower(id) = lower($1) AND lower(email) = lower($2)`,
+      [normalizedUserId, normalizedEmail]
+    );
+
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ error: "User not found with matching ID and email" });
+    }
+
+    const user = userQuery.rows[0];
+    if (!user.needs_password_reset) {
+      return res.status(400).json({ error: "Password has already been reset. Please login normally." });
+    }
+
+    const hashedPassword = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
+    await pool.query(
+      `UPDATE ${table} SET password = $1, needs_password_reset = FALSE WHERE id = $2`,
+      [hashedPassword, user.id]
+    );
+
+    // Create session token and log user in automatically
+    const token = generateToken();
+    await pool.query(
+      "INSERT INTO sessions (token, user_id, user_role) VALUES ($1, $2, $3)",
+      [token, user.id, role]
+    );
+
+    res.json({
+      message: "Password reset successful",
+      token,
+      session: {
+        role,
+        userId: user.id,
+        name: user.name,
+        email: normalizedEmail
+      }
+    });
+  } catch (err) {
+    console.error("Password reset error:", err.message);
+    res.status(500).json({ error: "Password reset failed", details: err.message });
+  }
+});
+
+// POST /api/managers (Authority only)
+app.post("/api/managers", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const { id, name, email } = req.body;
+    if (!id || !name || !email) {
+      return res.status(400).json({ error: "Missing required fields: id, name, email" });
+    }
+
+    const normalizedId = id.trim();
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Check if manager already exists
+    const existing = await pool.query(
+      "SELECT 1 FROM managers WHERE lower(id) = lower($1) OR lower(email) = lower($2)",
+      [normalizedId, normalizedEmail]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Manager with this ID or Email already exists" });
+    }
+
+    // Password defaults to "Welcome123$"
+    const defaultPassword = "Welcome123$";
+    const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
+
+    await pool.query(
+      "INSERT INTO managers (id, name, email, password, needs_password_reset) VALUES ($1, $2, $3, $4, TRUE)",
+      [normalizedId, normalizedName, normalizedEmail, hashedPassword]
+    );
+
+    res.status(201).json({ message: "Manager created successfully" });
+  } catch (err) {
+    console.error("Manager creation error:", err.message);
+    res.status(500).json({ error: "Failed to create manager", details: err.message });
+  }
+});
+
+// PUT /api/managers/:id (Authority only)
+app.put("/api/managers/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const managerId = req.params.id;
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: "Missing required fields: name, email" });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Check if another manager already has this email
+    const existingEmail = await pool.query(
+      "SELECT 1 FROM managers WHERE lower(email) = lower($1) AND lower(id) != lower($2)",
+      [normalizedEmail, managerId]
+    );
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: "Another manager is already using this email" });
+    }
+
+    const updateRes = await pool.query(
+      "UPDATE managers SET name = $1, email = $2 WHERE id = $3 RETURNING *",
+      [normalizedName, normalizedEmail, managerId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: "Manager not found" });
+    }
+
+    res.json({ message: "Manager updated successfully" });
+  } catch (err) {
+    console.error("Manager update error:", err.message);
+    res.status(500).json({ error: "Failed to update manager", details: err.message });
+  }
+});
+
+// POST /api/employees (Authority/Manager)
+app.post("/api/employees", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority" && req.user.role !== "manager") {
+      return res.status(403).json({ error: "Forbidden: Manager or Authority role required" });
+    }
+
+    const { id, name, email } = req.body;
+    if (!id || !name || !email) {
+      return res.status(400).json({ error: "Missing required fields: id, name, email" });
+    }
+
+    const normalizedId = id.trim();
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Check if employee already exists
+    const existing = await pool.query(
+      "SELECT 1 FROM employees WHERE lower(id) = lower($1) OR lower(email) = lower($2)",
+      [normalizedId, normalizedEmail]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Employee with this ID or Email already exists" });
+    }
+
+    // Password defaults to "Welcome123$"
+    const defaultPassword = "Welcome123$";
+    const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
+
+    await pool.query(
+      "INSERT INTO employees (id, name, email, password, needs_password_reset, is_verified) VALUES ($1, $2, $3, $4, TRUE, TRUE)",
+      [normalizedId, normalizedName, normalizedEmail, hashedPassword]
+    );
+
+    res.status(201).json({ message: "Employee created successfully" });
+  } catch (err) {
+    console.error("Employee creation error:", err.message);
+    res.status(500).json({ error: "Failed to create employee", details: err.message });
+  }
+});
+
+// PUT /api/employees/:id (Authority/Manager)
+app.put("/api/employees/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority" && req.user.role !== "manager") {
+      return res.status(403).json({ error: "Forbidden: Manager or Authority role required" });
+    }
+
+    const employeeId = req.params.id;
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: "Missing required fields: name, email" });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Check if another employee already has this email
+    const existingEmail = await pool.query(
+      "SELECT 1 FROM employees WHERE lower(email) = lower($1) AND lower(id) != lower($2)",
+      [normalizedEmail, employeeId]
+    );
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: "Another employee is already using this email" });
+    }
+
+    const updateRes = await pool.query(
+      "UPDATE employees SET name = $1, email = $2 WHERE id = $3 RETURNING *",
+      [normalizedName, normalizedEmail, employeeId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    res.json({ message: "Employee updated successfully" });
+  } catch (err) {
+    console.error("Employee update error:", err.message);
+    res.status(500).json({ error: "Failed to update employee", details: err.message });
   }
 });
 

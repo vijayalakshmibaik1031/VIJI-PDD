@@ -1,6 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
-import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 import Landing from './pages/Landing';
 import GetStarted from './pages/GetStarted';
 import { useAuth } from './context/AuthContext';
@@ -21,6 +21,8 @@ import AuthorityOverview from './pages/authority/AuthorityOverview';
 import AuthorityAll from './pages/authority/AuthorityAll';
 import AuthorityEscalated from './pages/authority/AuthorityEscalated';
 import AuthorityRooms from './pages/authority/AuthorityRooms';
+import AuthorityUsers from './pages/authority/AuthorityUsers';
+import ManagerEmployees from './pages/manager/ManagerEmployees';
 
 function HomeRedirect() {
   const { session } = useAuth();
@@ -35,7 +37,8 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<Navigate to="/get-started" replace />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/get-started" element={<GetStarted />} />
         <Route path="/login/:role" element={<Login />} />
         <Route path="/login" element={<Login />} />
@@ -69,6 +72,7 @@ export default function App() {
           <Route path="inprogress" element={<ManagerInProgress />} />
           <Route path="completed" element={<ManagerCompleted />} />
           <Route path="all" element={<ManagerAll />} />
+          <Route path="employees" element={<ManagerEmployees />} />
         </Route>
 
         <Route
@@ -84,6 +88,7 @@ export default function App() {
           <Route path="all" element={<AuthorityAll />} />
           <Route path="escalated" element={<AuthorityEscalated />} />
           <Route path="rooms" element={<AuthorityRooms />} />
+          <Route path="users" element={<AuthorityUsers />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

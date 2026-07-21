@@ -50,11 +50,22 @@ export default function Login() {
     setError('');
 
     try {
-      const session = await login({ role, userId: userId.trim(), password });
+      const response = await login({ role, userId: userId.trim(), password });
+      if (response && response.needsPasswordReset) {
+        navigate('/reset-password', {
+          state: {
+            role: response.role,
+            userId: response.userId,
+            email: response.email,
+          },
+        });
+        return;
+      }
+
       let destination = '/';
-      if (session.role === 'employee') destination = '/employee/raise';
-      else if (session.role === 'manager') destination = '/manager/pending';
-      else if (session.role === 'authority') destination = '/authority/overview';
+      if (response.role === 'employee') destination = '/employee/raise';
+      else if (response.role === 'manager') destination = '/manager/pending';
+      else if (response.role === 'authority') destination = '/authority/overview';
       navigate(destination, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -78,7 +89,7 @@ export default function Login() {
           ) : role === 'authority' ? (
             <span>System account: ID <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">auth</code>, password <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">auth123</code></span>
           ) : (
-            <span>New employees can register from this page using their ID.</span>
+            <span>Sign in to report and track facility issues.</span>
           )}
         </div>
 
@@ -136,15 +147,9 @@ export default function Login() {
           Login
         </button>
 
-        {role === 'employee' ? (
-          <p className="mt-6 text-sm text-slate-400 text-center">
-            New employee? <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">Register</Link>
-          </p>
-        ) : (
-          <p className="mt-6 text-sm text-slate-400 text-center">
-            <Link to="/get-started" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">Back to Get Started</Link>
-          </p>
-        )}
+        <p className="mt-6 text-sm text-slate-400 text-center">
+          <Link to="/get-started" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">Back to Get Started</Link>
+        </p>
       </form>
     </div>
   );
