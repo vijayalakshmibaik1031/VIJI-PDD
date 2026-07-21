@@ -189,7 +189,6 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    await pool.query("ALTER TABLE employees ALTER COLUMN password DROP NOT NULL").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255)").catch(() => {});
@@ -501,80 +500,6 @@ app.post("/api/employees/login", async (req, res) => {
   }
 });
 
-// Google OAuth verification and authentication for employees
-app.post("/api/auth/google", async (req, res) => {
-  try {
-    const { credential } = req.body;
-    if (!credential) {
-      return res.status(400).json({ error: "Missing Google credential token" });
-    }
-
-    // Verify token with Google API tokeninfo endpoint
-    const verifyUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
-    const verifyRes = await fetch(verifyUrl);
-    if (!verifyRes.ok) {
-      return res.status(400).json({ error: "Invalid Google credential token" });
-    }
-
-    const payload = await verifyRes.json();
-
-    // Verify client ID audience match if configured
-    const clientID = process.env.GOOGLE_CLIENT_ID;
-    if (clientID && payload.aud !== clientID) {
-      return res.status(400).json({ error: "Google Client ID mismatch" });
-    }
-
-    const { email, name, sub } = payload;
-    if (!email) {
-      return res.status(400).json({ error: "Google account must provide email address" });
-    }
-
-    // Use email as unique employee ID
-    const employeeId = email.trim().toLowerCase();
-    const displayName = name ? name.trim() : email.split("@")[0];
-
-    // Ensure database connection is active
-    await pool.query("SELECT 1");
-
-    // Check if employee already exists (case-insensitive)
-    let employeeQuery = await pool.query("SELECT * FROM employees WHERE lower(id) = lower($1)", [employeeId]);
-
-    if (employeeQuery.rows.length === 0) {
-      // Register new employee automatically (password is null for Google users, already verified by Google)
-      const registerRes = await pool.query(
-        "INSERT INTO employees (id, name, password, is_verified) VALUES ($1, $2, NULL, TRUE) RETURNING *",
-        [employeeId, displayName]
-      );
-      employeeQuery = registerRes;
-      console.log(`✓ Auto-registered new employee via Google OAuth: ${employeeId}`);
-    }
-
-    const employee = employeeQuery.rows[0];
-
-    // Create session token
-    const token = generateToken();
-    await pool.query(
-      "INSERT INTO sessions (token, user_id, user_role) VALUES ($1, $2, $3)",
-      [token, employee.id, "employee"]
-    );
-
-    res.json({
-      message: "Login successful with Google",
-      token,
-      session: {
-        role: "employee",
-        userId: employee.id,
-        name: employee.name,
-        username: employee.username || "",
-        needsSetup: !employee.password
-      },
-    });
-
-  } catch (err) {
-    console.error("Google authentication error:", err.message);
-    res.status(500).json({ error: "Google login failed", details: err.message });
-  }
-});
 
 app.get("/api/employees", requireAuth, async (req, res) => {
   try {

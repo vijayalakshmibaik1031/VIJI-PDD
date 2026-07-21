@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { login, loginWithGoogle, loginWithToken } = useAuth();
+  const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const params = useParams();
 
@@ -14,39 +14,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleGoogleCredentialResponse = async (response) => {
-    setError('');
-    if (!response || !response.credential) {
-      setError('Google did not return a valid authentication token');
-      return;
-    }
-    try {
-      await loginWithGoogle(response.credential);
-      navigate('/employee/raise', { replace: true });
-    } catch (err) {
-      setError(err.message || 'Google login failed');
-    }
-  };
-
-  const initializeGoogleSignIn = () => {
-    if (!window.google) return;
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '359317502287-mockid.apps.googleusercontent.com';
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleGoogleCredentialResponse,
-    });
-
-    const btnContainer = document.getElementById('google-signin-btn');
-    if (btnContainer) {
-      window.google.accounts.id.renderButton(btnContainer, {
-        theme: 'filled_blue',
-        size: 'large',
-        width: 384,
-        text: 'signin_with',
-        shape: 'pill',
-      });
-    }
-  };
 
   useEffect(() => {
     // Check if redirect contains verification token session payload or error
@@ -76,31 +43,6 @@ export default function Login() {
     }
 
     setError('');
-
-    if (role === 'employee') {
-      const scriptId = 'google-gis-script';
-      let script = document.getElementById(scriptId);
-      if (!script) {
-        script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.id = scriptId;
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
-      }
-
-      script.onload = () => {
-        initializeGoogleSignIn();
-      };
-
-      const timer = setTimeout(() => {
-        if (window.google) {
-          initializeGoogleSignIn();
-        }
-      }, 300);
-
-      return () => clearTimeout(timer);
-    }
   }, [role]);
 
   const submit = async (event) => {
@@ -193,19 +135,6 @@ export default function Login() {
         >
           Login
         </button>
-
-        {role === 'employee' && (
-          <>
-            <div className="my-4 flex items-center justify-between">
-              <span className="w-1/5 border-b border-slate-700"></span>
-              <span className="text-xs uppercase text-slate-400 font-semibold">Or continue with</span>
-              <span className="w-1/5 border-b border-slate-700"></span>
-            </div>
-            <div className="flex justify-center">
-              <div id="google-signin-btn" className="w-full"></div>
-            </div>
-          </>
-        )}
 
         {role === 'employee' ? (
           <p className="mt-6 text-sm text-slate-400 text-center">
