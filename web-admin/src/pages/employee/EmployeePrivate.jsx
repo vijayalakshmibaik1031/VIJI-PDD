@@ -187,18 +187,39 @@ export default function EmployeePrivate() {
               </div>
             )}
 
+            {/* ── Public & Open for Endorsements Notice ── */}
+            {latest.visibility === 'public' && !isEscalated && !isCompleted && !latestIsRejected && (
+              <div className="mt-2 rounded border border-teal-900/50 bg-teal-950/30 p-3 text-sm text-teal-400">
+                <p className="font-semibold flex items-center gap-1">
+                  <span>📢</span> Raised to Public
+                </p>
+                <p className="mt-0.5 text-slate-300 text-xs">
+                  This complaint has been raised to public. Other employees can now view and endorse this issue in the "Public Complaints" section.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-teal-300">
+                  Total Endorsements: {(latest.endorsedBy || []).length}
+                </p>
+              </div>
+            )}
+
             {/* ── Escalated notice — shown prominently, blocks re-complain ── */}
             {isEscalated && (
-              <div className="mt-2 rounded border border-purple-300 bg-purple-50 p-3 text-sm">
-                <p className="font-semibold text-purple-800">
-                  🔺 Escalated to Authority
+              <div className="mt-2 rounded border border-purple-900/50 bg-purple-950/30 p-3 text-sm">
+                <p className="font-semibold text-fuchsia-400 flex items-center gap-1">
+                  <span>▲</span> Escalated to Authority
                 </p>
-                <p className="mt-0.5 text-purple-700">
-                  This complaint has been escalated to the authority after repeated rejections.
-                  No further re-complaints can be raised — the authority is now reviewing it.
-                </p>
+                {escalatedComplaint?.visibility === 'public' ? (
+                  <p className="mt-0.5 text-purple-300 text-xs">
+                    This public complaint has been escalated to the authority for review. No further action is required — the authority is now reviewing it.
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-fuchsia-300 text-xs">
+                    This complaint has been escalated to the authority after repeated rejections.
+                    No further re-complaints can be raised — the authority is now reviewing it.
+                  </p>
+                )}
                 {escalatedComplaint?.escalationDescription && (
-                  <p className="mt-1 text-xs text-purple-600">
+                  <p className="mt-1.5 text-xs text-fuchsia-400 font-mono">
                     Reason: {escalatedComplaint.escalationDescription}
                   </p>
                 )}
