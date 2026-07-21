@@ -93,6 +93,29 @@ export default function AuthorityUsers() {
     }
   };
 
+  const handleDeleteClick = async () => {
+    if (!window.confirm(`Are you sure you want to delete this ${modalType === 'manager' ? 'manager' : 'employee'}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    try {
+      if (modalType === 'manager') {
+        await apiService.deleteManager(editingUserId);
+        setSuccess('Manager deleted successfully.');
+      } else {
+        await apiService.deleteEmployee(editingUserId);
+        setSuccess('Employee deleted successfully.');
+      }
+      fetchUsers();
+      setShowEditModal(false);
+      resetForm();
+    } catch (err) {
+      setError(err.message || 'Deletion failed.');
+    }
+  };
+
   const openAddModal = (type) => {
     setModalType(type);
     resetForm();
@@ -361,20 +384,29 @@ export default function AuthorityUsers() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-between pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-sm hover:bg-white/5 transition"
+                  onClick={handleDeleteClick}
+                  className="rounded-xl bg-rose-600/90 hover:bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition duration-200"
                 >
-                  Cancel
+                  Delete
                 </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition"
-                >
-                  Update
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="rounded-xl border border-slate-700 px-4 py-2 text-sm hover:bg-white/5 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition"
+                  >
+                    Update
+                  </button>
+                </div>
               </div>
             </form>
           </div>

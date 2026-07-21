@@ -272,4 +272,16 @@ export const apiService = {
       headers: authHeaders(),
       body: JSON.stringify({ name, email }),
     }),
+
+  deleteManager: (id) =>
+    apiFetch(`${API_URL}/managers/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }),
+
+  deleteEmployee: (id) =>
+    apiFetch(`${API_URL}/employees/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }),
 };

@@ -1109,6 +1109,54 @@ app.put("/api/employees/:id", requireAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/managers/:id (Authority only)
+app.delete("/api/managers/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const managerId = req.params.id;
+    const result = await pool.query("DELETE FROM managers WHERE id = $1 RETURNING *", [managerId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Manager not found" });
+    }
+
+    // Also clean up any active sessions for this manager
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [managerId]).catch(() => {});
+
+    res.json({ message: "Manager deleted successfully" });
+  } catch (err) {
+    console.error("Manager deletion error:", err.message);
+    res.status(500).json({ error: "Failed to delete manager", details: err.message });
+  }
+});
+
+// DELETE /api/employees/:id (Authority only)
+app.delete("/api/employees/:id", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const employeeId = req.params.id;
+    const result = await pool.query("DELETE FROM employees WHERE id = $1 RETURNING *", [employeeId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    // Also clean up any active sessions for this employee
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [employeeId]).catch(() => {});
+
+    res.json({ message: "Employee deleted successfully" });
+  } catch (err) {
+    console.error("Employee deletion error:", err.message);
+    res.status(500).json({ error: "Failed to delete employee", details: err.message });
+  }
+});
+
 // ===== AUTHORITY ENDPOINTS =====
 app.post("/api/authorities/register", async (req, res) => {
   try {
