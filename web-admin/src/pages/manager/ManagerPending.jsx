@@ -86,37 +86,44 @@ export default function ManagerPending() {
               <p className="text-sm text-slate-700">{complaint.description}</p>
               <CardMeta createdAt={complaint.createdAt} />
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  className="rounded bg-blue-700 px-3 py-1.5 text-sm text-white"
-                  onClick={() => {
-                    updateComplaintStatus(complaint.id, 'in_progress');
-                    showToast('Complaint accepted');
-                  }}
-                >
-                  Accept
-                </button>
-                <button
-                  className={`rounded px-3 py-1.5 text-sm text-white ${
-                    willEscalate ? 'bg-amber-600' : 'bg-red-700'
-                  }`}
-                  onClick={() => openModal(complaint)}
-                >
-                  {willEscalate ? 'Reject & Escalate' : 'Reject'}
-                </button>
                 {complaint.visibility === 'private' && (
-                  <button
-                    className="rounded bg-indigo-700 hover:bg-indigo-850 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
-                    onClick={async () => {
-                      try {
-                        await raiseComplaintToPublic(complaint.id);
-                        showToast('Complaint raised to public');
-                      } catch (err) {
-                        showToast(err.message || 'Failed to raise to public');
-                      }
-                    }}
-                  >
-                    Raise to Public
-                  </button>
+                  <>
+                    <button
+                      className="rounded bg-blue-700 px-3 py-1.5 text-sm text-white"
+                      onClick={() => {
+                        updateComplaintStatus(complaint.id, 'in_progress');
+                        showToast('Complaint accepted');
+                      }}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className={`rounded px-3 py-1.5 text-sm text-white ${
+                        willEscalate ? 'bg-amber-600' : 'bg-red-700'
+                      }`}
+                      onClick={() => openModal(complaint)}
+                    >
+                      {willEscalate ? 'Reject & Escalate' : 'Reject'}
+                    </button>
+                    <button
+                      className="rounded bg-indigo-700 hover:bg-indigo-850 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
+                      onClick={async () => {
+                        try {
+                          await raiseComplaintToPublic(complaint.id);
+                          showToast('Complaint raised to public');
+                        } catch (err) {
+                          showToast(err.message || 'Failed to raise to public');
+                        }
+                      }}
+                    >
+                      Raise to Public
+                    </button>
+                  </>
+                )}
+                {complaint.visibility === 'public' && (
+                  <span className="text-xs text-slate-500 font-medium italic border border-slate-200 bg-slate-50 rounded px-2.5 py-1">
+                    Public issue open for endorsements
+                  </span>
                 )}
               </div>
             </div>
