@@ -1,0 +1,30 @@
+{
+  "name": "facility-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.74.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "^13.6.9",
+    "@react-native-community/cli-platform-android": "^13.6.9",
+    "@react-native/babel-preset": "^0.74.87",
+    "@react-native/metro-config": "^0.74.87",
+    "@react-native/typescript-config": "^0.74.87",
+    "metro-react-native-babel-preset": "^0.77.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
