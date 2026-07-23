@@ -141,7 +141,7 @@ async function writeExcelReport(results, meta) {
     });
   });
 
-  const xlsxPath = path.join(outDir, 'Appium_Test_Report.xlsx');
+  const xlsxPath = path.join(outDir, 'Appium_Mobile_E2E_300_TestCases_Analysis_Report.xlsx');
   let mainReportPath = xlsxPath;
 
   // ==========================================
@@ -198,7 +198,7 @@ async function writeExcelReport(results, meta) {
     fs.rmSync(xlsxPath, { force: true });
     await wb.xlsx.writeFile(xlsxPath);
   } catch (err) {
-    mainReportPath = path.join(outDir, 'Appium_Test_Report_Combined.xlsx');
+    mainReportPath = path.join(outDir, 'Appium_Mobile_E2E_300_TestCases_Analysis_Report_Combined.xlsx');
     await wb.xlsx.writeFile(mainReportPath);
   }
 

@@ -498,11 +498,9 @@ async function generateAppiumReport() {
   sheet2.getColumn(11).width = 12;
 
   const out1 = path.join(ROOT_DIR, 'appium-tests', 'Appium_Mobile_E2E_300_TestCases_Analysis_Report.xlsx');
-  const out2 = path.join(ROOT_DIR, 'appium-tests', 'Appium_Test_Report.xlsx');
   const outDesktop = path.join(DESKTOP_DIR, 'Appium_Mobile_E2E_300_TestCases_Analysis_Report.xlsx');
 
   await wb.xlsx.writeFile(out1).catch((err) => console.log('File write info:', err.message));
-  await wb.xlsx.writeFile(out2).catch((err) => console.log('File write info:', err.message));
   await wb.xlsx.writeFile(outDesktop).catch(() => {});
 
   console.log(`✅ Saved Appium Report (${appTcNum - 1} test cases) -> ${out1}`);
