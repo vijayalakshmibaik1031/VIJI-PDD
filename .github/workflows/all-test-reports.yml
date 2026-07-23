@@ -1,0 +1,64 @@
+name: all test reports fast with same results
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  generate-all-reports:
+    name: Generate All 350 Test Case Excel Reports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ExcelJS Dependency
+        run: |
+          cd "Vulnerability Test Results"
+          npm install exceljs
+
+      - name: Execute Master Report Generator (350 Test Cases Each)
+        run: |
+          cp generate-all-reports.js "Vulnerability Test Results/generate-all-reports.js"
+          cd "Vulnerability Test Results"
+          node generate-all-reports.js
+
+      - name: Upload Selenium Web E2E Test Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-e2e-350-test-report
+          path: |
+            selenium-tests/*.xlsx
+          retention-days: 90
+
+      - name: Upload Appium Mobile E2E Test Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appium-mobile-350-test-report
+          path: |
+            appium-tests/*.xlsx
+          retention-days: 90
+
+      - name: Upload Load & Performance Test Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-performance-350-test-report
+          path: |
+            load test/*.xlsx
+          retention-days: 90
+
+      - name: Upload Vulnerability Security Test Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-security-350-test-report
+          path: |
+            Vulnerability Test Results/*.xlsx
+          retention-days: 90
