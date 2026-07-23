@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { apiCall } from '../config/api';
 import { useAuth } from './AuthContext';
 
@@ -18,15 +18,12 @@ export const ComplaintProvider = ({ children }) => {
 
   const fetchComplaints = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
     setError(null);
     try {
       const data = await apiCall('/complaints', { method: 'GET' }, token);
       setComplaints(Array.isArray(data) ? data : []);
-      setLoading(false);
     } catch (err) {
       setError(err.message);
-      setLoading(false);
     }
   }, [token]);
 
@@ -71,7 +68,6 @@ export const ComplaintProvider = ({ children }) => {
   }, [token]);
 
   const refreshAll = useCallback(async () => {
-    setLoading(true);
     await Promise.all([
       fetchComplaints(),
       fetchMergedGroups(),
@@ -79,8 +75,17 @@ export const ComplaintProvider = ({ children }) => {
       fetchEmployees(),
       fetchManagers(),
     ]);
-    setLoading(false);
   }, [fetchComplaints, fetchMergedGroups, fetchRooms, fetchEmployees, fetchManagers]);
+
+  // Silent automatic background sync polling (runs every 3 seconds)
+  useEffect(() => {
+    if (!token) return;
+    refreshAll();
+    const pollInterval = setInterval(() => {
+      refreshAll();
+    }, 3000);
+    return () => clearInterval(pollInterval);
+  }, [token, refreshAll]);
 
   // ── Complaint Actions ────────────────────────────────────────────────────
 

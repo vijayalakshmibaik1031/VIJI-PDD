@@ -81,13 +81,6 @@ function WebLayout({ title, links, session, logout }) {
           <span className="font-bold text-white tracking-tight">FacilityVoice</span>
           <div className="flex items-center gap-2">
             <button
-              className="rounded-lg border border-slate-700 bg-indigo-900/60 px-2.5 py-1.5 text-xs text-indigo-200 hover:bg-indigo-800 transition flex items-center gap-1 font-semibold"
-              onClick={handleRefresh}
-              type="button"
-            >
-              <span className={refreshing ? 'animate-spin' : ''}>🔄</span> Refresh
-            </button>
-            <button
               className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
               onClick={() => setOpen((v) => !v)}
               type="button"
@@ -130,14 +123,6 @@ function WebLayout({ title, links, session, logout }) {
             </nav>
 
             <div className="mt-8 border-t border-slate-800 pt-6 text-xs space-y-3">
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600/30 border border-indigo-500/40 hover:bg-indigo-600/50 px-4 py-2.5 text-indigo-200 font-semibold transition-all duration-150 text-xs"
-                onClick={handleRefresh}
-              >
-                <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
-                {refreshing ? 'Syncing Data...' : 'Refresh Data'}
-              </button>
               <div className="flex items-center justify-between pt-1">
                 <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
                 <button
