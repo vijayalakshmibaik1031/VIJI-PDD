@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Capacitor } from '@capacitor/core';
+import SwipeToRefresh from './SwipeToRefresh';
 
 // Lucide icons used for bottom nav tabs
 import {
@@ -61,71 +62,73 @@ function WebLayout({ title, links, session, logout }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white app-dark-theme">
-      {/* Mobile hamburger (web small screens only) */}
-      <div className="md:hidden border-b border-slate-800 bg-slate-900/60 p-3 flex items-center justify-between">
-        <span className="font-bold text-white tracking-tight">FacilityVoice</span>
-        <button
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
-          onClick={() => setOpen((v) => !v)}
-          type="button"
-          aria-label="Toggle menu"
-        >
-          {open ? '✕ Close' : '☰ Menu'}
-        </button>
+    <SwipeToRefresh>
+      <div className="min-h-screen bg-slate-950 text-white app-dark-theme">
+        {/* Mobile hamburger (web small screens only) */}
+        <div className="md:hidden border-b border-slate-800 bg-slate-900/60 p-3 flex items-center justify-between">
+          <span className="font-bold text-white tracking-tight">FacilityVoice</span>
+          <button
+            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
+            onClick={() => setOpen((v) => !v)}
+            type="button"
+            aria-label="Toggle menu"
+          >
+            {open ? '✕ Close' : '☰ Menu'}
+          </button>
+        </div>
+
+        <div className="flex w-full">
+          {/* Sidebar */}
+          <aside
+            className={`${
+              open ? 'block' : 'hidden'
+            } w-64 shrink-0 border-r border-slate-800 bg-slate-900/30 backdrop-blur-md p-6 md:block min-h-screen`}
+          >
+            <h1 className="mb-1 text-2xl font-extrabold text-white tracking-tight">FacilityVoice</h1>
+            <p className="mb-6 text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
+
+            <nav className="space-y-1.5">
+              {links.map((link) => {
+                const active = location.pathname === link.to;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                      active
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <NavIcon to={link.to} label={link.label} />
+                    <span>{link.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mt-8 border-t border-slate-800 pt-6 text-xs">
+              <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
+              <button
+                type="button"
+                className="mt-3 flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-4 py-2 text-white font-semibold shadow-lg shadow-rose-600/10 transition-all duration-150"
+                onClick={logout}
+                data-testid="logoutButton"
+              >
+                <LogOut size={14} />
+                Logout
+              </button>
+            </div>
+          </aside>
+
+          {/* Page content */}
+          <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+            <Outlet />
+          </main>
+        </div>
       </div>
-
-      <div className="flex w-full">
-        {/* Sidebar */}
-        <aside
-          className={`${
-            open ? 'block' : 'hidden'
-          } w-64 shrink-0 border-r border-slate-800 bg-slate-900/30 backdrop-blur-md p-6 md:block min-h-screen`}
-        >
-          <h1 className="mb-1 text-2xl font-extrabold text-white tracking-tight">FacilityVoice</h1>
-          <p className="mb-6 text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
-
-          <nav className="space-y-1.5">
-            {links.map((link) => {
-              const active = location.pathname === link.to;
-              return (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15'
-                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <NavIcon to={link.to} label={link.label} />
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-8 border-t border-slate-800 pt-6 text-xs">
-            <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
-            <button
-              type="button"
-              className="mt-3 flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-4 py-2 text-white font-semibold shadow-lg shadow-rose-600/10 transition-all duration-150"
-              onClick={logout}
-              data-testid="logoutButton"
-            >
-              <LogOut size={14} />
-              Logout
-            </button>
-          </div>
-        </aside>
-
-        {/* Page content */}
-        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    </SwipeToRefresh>
   );
 }
 

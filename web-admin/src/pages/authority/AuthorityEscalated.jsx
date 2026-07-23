@@ -1,21 +1,21 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useComplaints } from '../../context/ComplaintContext';
 import { EmptyState, StatusBadge, CardMeta } from '../../components/FacilityUI';
 import { useToast } from '../../context/ToastContext';
 
 export default function AuthorityEscalated() {
-  const { complaints, mergedGroups, acknowledgeComplaint, acknowledgeMergedComplaint, completeComplaint, completeMergedComplaint } = useComplaints();
+  const { complaints = [], mergedGroups = [], acknowledgeComplaint, acknowledgeMergedComplaint, completeComplaint, completeMergedComplaint } = useComplaints();
   const { showToast } = useToast();
 
   // Individual complaints escalated (by manager after 5 rejections, or manually)
   const escalatedComplaints = useMemo(
-    () => complaints.filter((c) => c.status === 'escalated'),
+    () => (complaints || []).filter((c) => c && c.status === 'escalated'),
     [complaints]
   );
 
   // Acknowledged individual complaints
   const acknowledgedComplaints = useMemo(
-    () => complaints.filter((c) => c.status === 'acknowledged'),
+    () => (complaints || []).filter((c) => c && c.status === 'acknowledged'),
     [complaints]
   );
 
@@ -25,19 +25,23 @@ export default function AuthorityEscalated() {
     const seen = new Set();
     const result = [];
 
-    mergedGroups
-      .filter((g) => g.status === 'escalated')
+    (mergedGroups || [])
+      .filter((g) => g && g.status === 'escalated')
       .forEach((g) => { seen.add(g.id); result.push({ ...g, _reason: 'escalated' }); });
 
-    mergedGroups
+    (mergedGroups || [])
       .filter((g) => {
-        if (seen.has(g.id)) return false;
-        const olderThan7d = now - new Date(g.createdAt).getTime() > 7 * 24 * 60 * 60 * 1000;
-        return g.endorsedBy.length >= 10 || olderThan7d;
+        if (!g || seen.has(g.id)) return false;
+        const endorsedList = g.endorsedBy || g.endorsed_by || [];
+        const createdDate = g.createdAt || g.created_at;
+        const olderThan7d = createdDate ? now - new Date(createdDate).getTime() > 7 * 24 * 60 * 60 * 1000 : false;
+        return endorsedList.length >= 10 || olderThan7d;
       })
       .forEach((g) => {
-        const olderThan7d = now - new Date(g.createdAt).getTime() > 7 * 24 * 60 * 60 * 1000;
-        const reason = g.endorsedBy.length >= 10 ? 'high endorsements' : olderThan7d ? 'older than 7 days' : '';
+        const endorsedList = g.endorsedBy || g.endorsed_by || [];
+        const createdDate = g.createdAt || g.created_at;
+        const olderThan7d = createdDate ? now - new Date(createdDate).getTime() > 7 * 24 * 60 * 60 * 1000 : false;
+        const reason = endorsedList.length >= 10 ? 'high endorsements' : olderThan7d ? 'older than 7 days' : '';
         seen.add(g.id);
         result.push({ ...g, _reason: reason });
       });
@@ -46,43 +50,61 @@ export default function AuthorityEscalated() {
   }, [mergedGroups]);
 
   const acknowledgedMerged = useMemo(
-    () => mergedGroups.filter((g) => g.status === 'acknowledged'),
+    () => (mergedGroups || []).filter((g) => g && g.status === 'acknowledged'),
     [mergedGroups]
   );
 
+  const [processingId, setProcessingId] = useState(null);
+
   const handleAcknowledgeComplaint = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
       await acknowledgeComplaint(id);
       showToast('Complaint acknowledged');
     } catch (err) {
       showToast(err.message || 'Failed to acknowledge');
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleAcknowledgeMerged = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
       await acknowledgeMergedComplaint(id);
       showToast('Merged group acknowledged');
     } catch (err) {
       showToast(err.message || 'Failed to acknowledge');
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleCompleteComplaint = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
       await completeComplaint(id, 'Resolved by Authority', null);
       showToast('Complaint completed by Authority');
     } catch (err) {
       showToast(err.message || 'Failed to complete complaint');
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleCompleteMerged = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
     try {
       await completeMergedComplaint(id, 'Resolved by Authority', null);
       showToast('Merged issue completed by Authority');
     } catch (err) {
       showToast(err.message || 'Failed to complete merged issue');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -168,10 +190,11 @@ export default function AuthorityEscalated() {
                   <CardMeta createdAt={complaint.createdAt} />
 
                   <button
-                    className="mt-3 rounded bg-indigo-700 px-3 py-1 text-sm text-white hover:bg-indigo-800"
+                    className="mt-3 rounded bg-indigo-700 px-3 py-1 text-sm text-white hover:bg-indigo-800 disabled:opacity-50"
+                    disabled={processingId === complaint.id}
                     onClick={() => handleAcknowledgeComplaint(complaint.id)}
                   >
-                    Mark Acknowledged
+                    {processingId === complaint.id ? 'Acknowledging...' : 'Mark Acknowledged'}
                   </button>
                 </div>
               );
@@ -190,7 +213,9 @@ export default function AuthorityEscalated() {
         {mergedNeedingAttention.length ? (
           <div className="space-y-3">
             {mergedNeedingAttention.map((group) => {
-              const items = complaints.filter((c) => group.constituentComplaintIds.includes(c.id));
+              const constituentIds = group.constituentComplaintIds || group.constituent_complaint_ids || [];
+              const endorsedList = group.endorsedBy || group.endorsed_by || [];
+              const items = complaints.filter((c) => c && constituentIds.includes(c.id));
               const isEscalated = group.status === 'escalated';
               return (
                 <div
@@ -213,8 +238,8 @@ export default function AuthorityEscalated() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-700">{group.managerDescription}</p>
-                  <p className="text-xs text-slate-500 mt-1">Endorsements: {group.endorsedBy.length}</p>
+                  <p className="text-sm text-slate-700">{group.managerDescription || group.manager_description}</p>
+                  <p className="text-xs text-slate-500 mt-1">Endorsements: {endorsedList.length}</p>
                   {group.escalationNote ? (
                     <div className="mt-2 rounded border border-purple-200 bg-purple-50 p-2">
                       <p className="text-xs font-semibold text-purple-700 mb-0.5">Manager's Escalation Note</p>
@@ -232,10 +257,11 @@ export default function AuthorityEscalated() {
                     </div>
                   )}
                   <button
-                    className="mt-3 rounded bg-indigo-700 px-3 py-1 text-sm text-white hover:bg-indigo-800"
+                    className="mt-3 rounded bg-indigo-700 px-3 py-1 text-sm text-white hover:bg-indigo-800 disabled:opacity-50"
+                    disabled={processingId === group.id}
                     onClick={() => handleAcknowledgeMerged(group.id)}
                   >
-                    Mark Acknowledged
+                    {processingId === group.id ? 'Acknowledging...' : 'Mark Acknowledged'}
                   </button>
                 </div>
               );
@@ -267,10 +293,11 @@ export default function AuthorityEscalated() {
                 <CardMeta createdAt={complaint.createdAt} />
                 <div className="mt-3">
                   <button
-                    className="rounded bg-green-700 hover:bg-green-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                    className="rounded bg-green-700 hover:bg-green-800 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                    disabled={processingId === complaint.id}
                     onClick={() => handleCompleteComplaint(complaint.id)}
                   >
-                    Mark as Complete
+                    {processingId === complaint.id ? 'Completing...' : 'Mark as Complete'}
                   </button>
                 </div>
               </div>
@@ -283,14 +310,15 @@ export default function AuthorityEscalated() {
                   </p>
                   <StatusBadge status={group.status} />
                 </div>
-                <p className="text-sm text-slate-700">{group.managerDescription}</p>
-                <p className="text-xs text-slate-500">Endorsements: {group.endorsedBy.length}</p>
+                <p className="text-sm text-slate-700">{group.managerDescription || group.manager_description}</p>
+                <p className="text-xs text-slate-500">Endorsements: {(group.endorsedBy || group.endorsed_by || []).length}</p>
                 <div className="mt-3">
                   <button
-                    className="rounded bg-green-700 hover:bg-green-800 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                    className="rounded bg-green-700 hover:bg-green-800 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                    disabled={processingId === group.id}
                     onClick={() => handleCompleteMerged(group.id)}
                   >
-                    Mark as Complete
+                    {processingId === group.id ? 'Completing...' : 'Mark as Complete'}
                   </button>
                 </div>
               </div>

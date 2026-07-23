@@ -8,6 +8,8 @@ export default function ManagerPending() {
   const { showToast } = useToast();
   const [activeModal, setActiveModal] = useState(null);
   const [reasonText, setReasonText] = useState('');
+  const [busyId, setBusyId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!pendingUnmerged.length) return <EmptyState text="No complaints yet. Pending list is empty." />;
 
@@ -22,18 +24,18 @@ export default function ManagerPending() {
   };
 
   const confirmDecision = async () => {
+    if (isSubmitting) return;
     if (!activeModal || reasonText.trim().length < 5) {
       showToast('Enter a valid reason (min 5 characters)');
       return;
     }
-    // Capture values before closeModal() clears them
     const complaintId = activeModal.id;
     const reason = reasonText.trim();
+    setIsSubmitting(true);
     closeModal();
 
     try {
       const res = await rejectComplaint(complaintId, reason);
-      // Backend returns { escalated: true } when it auto-escalates on the 5th rejection
       if (res && res.escalated === true) {
         showToast('Complaint escalated to authority');
       } else {
@@ -41,6 +43,8 @@ export default function ManagerPending() {
       }
     } catch (err) {
       showToast(err.message || 'Action failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -89,34 +93,47 @@ export default function ManagerPending() {
                 {complaint.visibility === 'private' && (
                   <>
                     <button
-                      className="rounded bg-blue-700 px-3 py-1.5 text-sm text-white"
-                      onClick={() => {
-                        updateComplaintStatus(complaint.id, 'in_progress');
-                        showToast('Complaint accepted');
+                      className="rounded bg-blue-700 hover:bg-blue-800 disabled:opacity-50 px-3 py-1.5 text-sm text-white"
+                      disabled={busyId === complaint.id}
+                      onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(complaint.id);
+                        try {
+                          await updateComplaintStatus(complaint.id, 'in_progress');
+                          showToast('Complaint accepted');
+                        } finally {
+                          setBusyId(null);
+                        }
                       }}
                     >
-                      Accept
+                      {busyId === complaint.id ? 'Accepting...' : 'Accept'}
                     </button>
                     <button
-                      className={`rounded px-3 py-1.5 text-sm text-white ${
+                      className={`rounded px-3 py-1.5 text-sm text-white disabled:opacity-50 ${
                         willEscalate ? 'bg-amber-600' : 'bg-red-700'
                       }`}
+                      disabled={busyId === complaint.id}
                       onClick={() => openModal(complaint)}
                     >
                       {willEscalate ? 'Reject & Escalate' : 'Reject'}
                     </button>
                     <button
-                      className="rounded bg-indigo-700 hover:bg-indigo-850 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
+                      className="rounded bg-indigo-700 hover:bg-indigo-850 disabled:opacity-50 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
+                      disabled={busyId === complaint.id}
                       onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(complaint.id);
                         try {
                           await raiseComplaintToPublic(complaint.id);
                           showToast('Complaint raised to public');
                         } catch (err) {
                           showToast(err.message || 'Failed to raise to public');
+                        } finally {
+                          setBusyId(null);
                         }
                       }}
                     >
-                      Raise to Public
+                      {busyId === complaint.id ? 'Processing...' : 'Raise to Public'}
                     </button>
                   </>
                 )}
@@ -177,12 +194,13 @@ export default function ManagerPending() {
                       Cancel
                     </button>
                     <button
-                      className={`rounded px-3 py-1 text-sm text-white ${
+                      className={`rounded px-3 py-1 text-sm text-white disabled:opacity-50 ${
                         willEscalate ? 'bg-amber-600' : 'bg-red-700'
                       }`}
+                      disabled={isSubmitting}
                       onClick={confirmDecision}
                     >
-                      {willEscalate ? 'Confirm & Escalate to Authority' : 'Confirm Rejection'}
+                      {isSubmitting ? 'Processing...' : willEscalate ? 'Confirm & Escalate to Authority' : 'Confirm Rejection'}
                     </button>
                   </div>
                 </div>

@@ -28,6 +28,7 @@ export default function ManagerInProgress() {
   };
 
   const handleCompleteClick = async (id) => {
+    if (completingId) return;
     setCompletingId(id);
     try {
       await completeComplaint(id, '', null);
