@@ -128,6 +128,7 @@ export function ComplaintProvider({ children }) {
 
     // Auto-refresh background polling every 3 seconds
     const pollInterval = setInterval(async () => {
+      if (!session) return;
       try {
         const [complaintsData, mergedData, roomsData] = await Promise.all([
           apiService.getComplaints(),
