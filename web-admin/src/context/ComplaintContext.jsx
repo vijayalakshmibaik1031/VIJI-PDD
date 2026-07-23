@@ -20,21 +20,21 @@ const ComplaintContext = createContext({
   error: null,
   pendingUnmerged: [],
   mergeCandidates: [],
-  reload: async () => {},
-  addComplaint: async () => {},
-  endorseMerged: async () => {},
-  updateComplaintStatus: async () => {},
-  completeComplaint: async () => {},
-  rejectComplaint: async () => {},
-  escalateComplaint: async () => {},
-  acknowledgeComplaint: async () => {},
-  escalateMergedComplaint: async () => {},
-  acknowledgeMergedComplaint: async () => {},
-  mergeComplaints: async () => {},
+  reload: async () => { },
+  addComplaint: async () => { },
+  endorseMerged: async () => { },
+  updateComplaintStatus: async () => { },
+  completeComplaint: async () => { },
+  rejectComplaint: async () => { },
+  escalateComplaint: async () => { },
+  acknowledgeComplaint: async () => { },
+  escalateMergedComplaint: async () => { },
+  acknowledgeMergedComplaint: async () => { },
+  mergeComplaints: async () => { },
   getRejectionCount: () => 0,
-  createRoom: async () => {},
-  updateRoom: async () => {},
-  deleteRoom: async () => {},
+  createRoom: async () => { },
+  updateRoom: async () => { },
+  deleteRoom: async () => { },
   status: {},
   visibility: {},
 });
@@ -128,7 +128,6 @@ export function ComplaintProvider({ children }) {
 
     // Auto-refresh background polling every 3 seconds
     const pollInterval = setInterval(async () => {
-      if (!session) return;
       try {
         const [complaintsData, mergedData, roomsData] = await Promise.all([
           apiService.getComplaints(),
@@ -259,10 +258,10 @@ export function ComplaintProvider({ children }) {
         prev.map((item) =>
           item.id === id
             ? {
-                ...item,
-                status: 'escalated',
-                escalationDescription,
-              }
+              ...item,
+              status: 'escalated',
+              escalationDescription,
+            }
             : item
         )
       );
@@ -313,10 +312,10 @@ export function ComplaintProvider({ children }) {
         prev.map((group) =>
           group.id === id
             ? {
-                ...group,
-                status: 'escalated',
-                escalationNote,
-              }
+              ...group,
+              status: 'escalated',
+              escalationNote,
+            }
             : group
         )
       );

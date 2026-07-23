@@ -511,7 +511,7 @@ function buildTestCases() {
   }
 
   // ==========================================
-  // 9. STABILITY TEST CASES (32 Test Cases)
+  // 9. STABILITY TEST CASES (80 Test Cases)
   // ==========================================
 
   const loginScreenChecks = [
@@ -523,6 +523,18 @@ function buildTestCases() {
     { id: 'loginButton', label: 'Login button visible' },
     { id: 'registerLink', label: 'Register link visible' },
     { id: 'loginButton', label: 'Login button remains visible after reload' },
+    { id: 'loginTitle', label: 'Login title alignment verified' },
+    { id: 'loginSubtitle', label: 'Login subtitle alignment verified' },
+    { id: 'rolePicker', label: 'Role picker option persistence verified' },
+    { id: 'userId', label: 'User ID text alignment verified' },
+    { id: 'password', label: 'Password text alignment verified' },
+    { id: 'loginButton', label: 'Login button sizing check' },
+    { id: 'registerLink', label: 'Register link active state check' },
+    { id: 'loginTitle', label: 'Login title color check' },
+    { id: 'loginSubtitle', label: 'Login subtitle color check' },
+    { id: 'rolePicker', label: 'Role picker responsiveness' },
+    { id: 'userId', label: 'User ID placeholder check' },
+    { id: 'password', label: 'Password placeholder check' },
   ];
 
   loginScreenChecks.forEach((item, idx) => {
@@ -536,7 +548,11 @@ function buildTestCases() {
     );
   });
 
-  const roleChecks = ['employee', 'manager', 'authority', 'employee', 'manager', 'authority', 'employee', 'manager'];
+  const roleChecks = [
+    'employee', 'manager', 'authority', 'employee', 'manager', 'authority', 'employee', 'manager',
+    'authority', 'employee', 'manager', 'authority', 'employee', 'manager', 'authority', 'employee',
+    'manager', 'authority', 'employee', 'manager'
+  ];
   roleChecks.forEach((role, idx) => {
     tests.push(
       tc(id(), 'Stability', `Role selection persists for ${role} #${idx + 1}`, 'Confirm role dropdown handles repeated selection', `Select ${role} and verify value`, role, 'Low', async () => {
@@ -550,7 +566,9 @@ function buildTestCases() {
   });
 
   const routeChecks = [
-    '/', '/register', '/', '/register', '/', '/register', '/', '/register'
+    '/', '/register', '/', '/register', '/', '/register', '/', '/register',
+    '/', '/register', '/', '/register', '/', '/register', '/', '/register',
+    '/', '/register', '/', '/register'
   ];
   routeChecks.forEach((route, idx) => {
     tests.push(
@@ -563,7 +581,9 @@ function buildTestCases() {
   });
 
   const shellChecks = [
-    'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login'
+    'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login',
+    'Register', 'FacilityDesk', 'Login', 'Register', 'FacilityDesk', 'Login', 'Register', 'FacilityDesk',
+    'Login', 'Register', 'FacilityDesk', 'Login'
   ];
   shellChecks.forEach((text, idx) => {
     tests.push(

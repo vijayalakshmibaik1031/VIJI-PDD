@@ -33,10 +33,6 @@ jobs:
         working-directory: appium-tests
         run: node run-direct.js
 
-      - name: Copy 350 Test Cases Report
-        if: always()
-        run: cp appium-tests/Appium_Mobile_E2E_300_TestCases_Analysis_Report.xlsx appium-tests/reports/Appium_Mobile_E2E_300_TestCases_Analysis_Report.xlsx
-
       - name: Upload Appium Reports
         if: always()
         uses: actions/upload-artifact@v4
