@@ -9,8 +9,8 @@ const PASS_BG      = 'FFC6EFCE'; // Soft green fill
 const PASS_TEXT    = 'FF006100'; // Dark green text
 const ZEBRE_EVEN   = 'FFF8FAFC'; // Light zebra row
 
-const ROOT_DIR = 'C:\\Users\\VIJAYALAKSHMI\\OneDrive\\Desktop\\viji new css';
-const DESKTOP_DIR = 'C:\\Users\\VIJAYALAKSHMI\\OneDrive\\Desktop';
+const ROOT_DIR = __dirname.includes('Vulnerability') ? path.resolve(__dirname, '..') : path.resolve(__dirname);
+const DESKTOP_DIR = path.join(require('os').homedir(), 'Desktop');
 
 function applyTitleBanner(ws, text, colCount) {
   ws.mergeCells(1, 1, 1, colCount);
