@@ -125,6 +125,24 @@ export function ComplaintProvider({ children }) {
     };
 
     loadData();
+
+    // Auto-refresh background polling every 3 seconds
+    const pollInterval = setInterval(async () => {
+      try {
+        const [complaintsData, mergedData, roomsData] = await Promise.all([
+          apiService.getComplaints(),
+          apiService.getMergedGroups(),
+          apiService.getRooms(),
+        ]);
+        setComplaints(complaintsData.map(normalizeComplaint));
+        setMergedGroups(mergedData.map(normalizeMergedGroup));
+        setRooms(roomsData);
+      } catch {
+        // silent background poll catch
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
   }, [session]);
 
   const addComplaint = async (payload) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { CardMeta, EmptyState, StatusBadge } from '../../components/FacilityUI';
 import { useComplaints } from '../../context/ComplaintContext';
 import { useToast } from '../../context/ToastContext';
@@ -10,6 +10,7 @@ export default function ManagerPending() {
   const [reasonText, setReasonText] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const busySetRef = useRef(new Set());
 
   if (!pendingUnmerged.length) return <EmptyState text="No complaints yet. Pending list is empty." />;
 
@@ -96,11 +97,15 @@ export default function ManagerPending() {
                       className="rounded bg-blue-700 hover:bg-blue-800 disabled:opacity-50 px-3 py-1.5 text-sm text-white"
                       disabled={busyId === complaint.id}
                       onClick={async () => {
-                        if (busyId) return;
+                        if (busySetRef.current.has(complaint.id)) return;
+                        busySetRef.current.add(complaint.id);
                         setBusyId(complaint.id);
                         try {
                           await updateComplaintStatus(complaint.id, 'in_progress');
                           showToast('Complaint accepted');
+                        } catch (err) {
+                          showToast(err.message || 'Failed to accept');
+                          busySetRef.current.delete(complaint.id);
                         } finally {
                           setBusyId(null);
                         }
@@ -121,13 +126,15 @@ export default function ManagerPending() {
                       className="rounded bg-indigo-700 hover:bg-indigo-850 disabled:opacity-50 px-3 py-1.5 text-sm text-white font-medium transition duration-200"
                       disabled={busyId === complaint.id}
                       onClick={async () => {
-                        if (busyId) return;
+                        if (busySetRef.current.has(complaint.id)) return;
+                        busySetRef.current.add(complaint.id);
                         setBusyId(complaint.id);
                         try {
                           await raiseComplaintToPublic(complaint.id);
                           showToast('Complaint raised to public');
                         } catch (err) {
                           showToast(err.message || 'Failed to raise to public');
+                          busySetRef.current.delete(complaint.id);
                         } finally {
                           setBusyId(null);
                         }

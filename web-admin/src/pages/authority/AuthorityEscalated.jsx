@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useComplaints } from '../../context/ComplaintContext';
 import { EmptyState, StatusBadge, CardMeta } from '../../components/FacilityUI';
 import { useToast } from '../../context/ToastContext';
@@ -6,6 +6,9 @@ import { useToast } from '../../context/ToastContext';
 export default function AuthorityEscalated() {
   const { complaints = [], mergedGroups = [], acknowledgeComplaint, acknowledgeMergedComplaint, completeComplaint, completeMergedComplaint } = useComplaints();
   const { showToast } = useToast();
+
+  const busySetRef = useRef(new Set());
+  const [processingId, setProcessingId] = useState(null);
 
   // Individual complaints escalated (by manager after 5 rejections, or manually)
   const escalatedComplaints = useMemo(
@@ -54,55 +57,61 @@ export default function AuthorityEscalated() {
     [mergedGroups]
   );
 
-  const [processingId, setProcessingId] = useState(null);
-
   const handleAcknowledgeComplaint = async (id) => {
-    if (processingId) return;
+    if (busySetRef.current.has(id)) return;
+    busySetRef.current.add(id);
     setProcessingId(id);
     try {
       await acknowledgeComplaint(id);
       showToast('Complaint acknowledged');
     } catch (err) {
       showToast(err.message || 'Failed to acknowledge');
+      busySetRef.current.delete(id);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleAcknowledgeMerged = async (id) => {
-    if (processingId) return;
+    if (busySetRef.current.has(id)) return;
+    busySetRef.current.add(id);
     setProcessingId(id);
     try {
       await acknowledgeMergedComplaint(id);
       showToast('Merged group acknowledged');
     } catch (err) {
       showToast(err.message || 'Failed to acknowledge');
+      busySetRef.current.delete(id);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleCompleteComplaint = async (id) => {
-    if (processingId) return;
+    if (busySetRef.current.has(id)) return;
+    busySetRef.current.add(id);
     setProcessingId(id);
     try {
       await completeComplaint(id, 'Resolved by Authority', null);
       showToast('Complaint completed by Authority');
     } catch (err) {
       showToast(err.message || 'Failed to complete complaint');
+      busySetRef.current.delete(id);
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleCompleteMerged = async (id) => {
-    if (processingId) return;
+    if (busySetRef.current.has(id)) return;
+    busySetRef.current.add(id);
     setProcessingId(id);
     try {
       await completeMergedComplaint(id, 'Resolved by Authority', null);
       showToast('Merged issue completed by Authority');
     } catch (err) {
       showToast(err.message || 'Failed to complete merged issue');
+      busySetRef.current.delete(id);
     } finally {
       setProcessingId(null);
     }
