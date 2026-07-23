@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useComplaints } from '../context/ComplaintContext';
 import { Capacitor } from '@capacitor/core';
 import SwipeToRefresh from './SwipeToRefresh';
 
@@ -60,6 +61,17 @@ function NavIcon({ to, label }) {
 function WebLayout({ title, links, session, logout }) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { reload } = useComplaints();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (reload) await reload();
+    } finally {
+      setTimeout(() => setRefreshing(false), 400);
+    }
+  };
 
   return (
     <SwipeToRefresh>
@@ -67,14 +79,23 @@ function WebLayout({ title, links, session, logout }) {
         {/* Mobile hamburger (web small screens only) */}
         <div className="md:hidden border-b border-slate-800 bg-slate-900/60 p-3 flex items-center justify-between">
           <span className="font-bold text-white tracking-tight">FacilityVoice</span>
-          <button
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
-            onClick={() => setOpen((v) => !v)}
-            type="button"
-            aria-label="Toggle menu"
-          >
-            {open ? '✕ Close' : '☰ Menu'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-lg border border-slate-700 bg-indigo-900/60 px-2.5 py-1.5 text-xs text-indigo-200 hover:bg-indigo-800 transition flex items-center gap-1 font-semibold"
+              onClick={handleRefresh}
+              type="button"
+            >
+              <span className={refreshing ? 'animate-spin' : ''}>🔄</span> Refresh
+            </button>
+            <button
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition"
+              onClick={() => setOpen((v) => !v)}
+              type="button"
+              aria-label="Toggle menu"
+            >
+              {open ? '✕ Close' : '☰ Menu'}
+            </button>
+          </div>
         </div>
 
         <div className="flex w-full">
@@ -108,17 +129,27 @@ function WebLayout({ title, links, session, logout }) {
               })}
             </nav>
 
-            <div className="mt-8 border-t border-slate-800 pt-6 text-xs">
-              <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
+            <div className="mt-8 border-t border-slate-800 pt-6 text-xs space-y-3">
               <button
                 type="button"
-                className="mt-3 flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-4 py-2 text-white font-semibold shadow-lg shadow-rose-600/10 transition-all duration-150"
-                onClick={logout}
-                data-testid="logoutButton"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600/30 border border-indigo-500/40 hover:bg-indigo-600/50 px-4 py-2.5 text-indigo-200 font-semibold transition-all duration-150 text-xs"
+                onClick={handleRefresh}
               >
-                <LogOut size={14} />
-                Logout
+                <span className={refreshing ? 'animate-spin' : ''}>🔄</span>
+                {refreshing ? 'Syncing Data...' : 'Refresh Data'}
               </button>
+              <div className="flex items-center justify-between pt-1">
+                <p className="font-semibold text-slate-200 text-sm">{session?.name}</p>
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-3 py-1.5 text-white font-semibold shadow-lg shadow-rose-600/10 transition-all duration-150 text-xs"
+                  onClick={logout}
+                  data-testid="logoutButton"
+                >
+                  <LogOut size={13} />
+                  Logout
+                </button>
+              </div>
             </div>
           </aside>
 

@@ -10,8 +10,9 @@ export default function SwipeToRefresh({ children }) {
 
   useEffect(() => {
     const triggerRefresh = async () => {
+      if (isRefreshing) return;
       setIsRefreshing(true);
-      setPullDistance(50);
+      setPullDistance(55);
       try {
         if (reload) await reload();
         else if (refreshAll) await refreshAll();
@@ -26,7 +27,8 @@ export default function SwipeToRefresh({ children }) {
     };
 
     const handleStart = (clientY) => {
-      if (window.scrollY === 0) {
+      // Only initiate pull-down if scrolled to top of page and dragging from top area
+      if (window.scrollY === 0 && clientY < 180) {
         startY.current = clientY;
         isPulling.current = true;
       }
@@ -36,7 +38,7 @@ export default function SwipeToRefresh({ children }) {
       if (!isPulling.current || window.scrollY > 0) return;
       const diff = clientY - startY.current;
       if (diff > 0) {
-        const dist = Math.min(diff * 0.4, 90);
+        const dist = Math.min(diff * 0.5, 80);
         setPullDistance(dist);
       }
     };
@@ -44,7 +46,7 @@ export default function SwipeToRefresh({ children }) {
     const handleEnd = () => {
       if (!isPulling.current) return;
       isPulling.current = false;
-      if (pullDistance > 50 && !isRefreshing) {
+      if (pullDistance >= 25 && !isRefreshing) {
         triggerRefresh();
       } else {
         setPullDistance(0);
@@ -56,7 +58,7 @@ export default function SwipeToRefresh({ children }) {
     const onTouchMove = (e) => handleMove(e.touches[0].clientY);
     const onTouchEnd = () => handleEnd();
 
-    // Mouse events (Laptop / Desktop drag down)
+    // Mouse events (Laptop / Desktop trackpad & mouse)
     const onMouseDown = (e) => {
       if (e.button === 0) handleStart(e.clientY);
     };
@@ -84,14 +86,15 @@ export default function SwipeToRefresh({ children }) {
 
   return (
     <div className="relative min-h-screen">
+      {/* Top Banner Indicator */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
-          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-all duration-150"
-          style={{ height: `${pullDistance}px`, opacity: Math.max(pullDistance / 50, 0.6) }}
+          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center transition-all duration-150 pointer-events-none"
+          style={{ height: `${Math.max(pullDistance, 45)}px`, opacity: Math.max(pullDistance / 25, 0.9) }}
         >
-          <div className="flex items-center gap-2 rounded-full bg-slate-900/95 px-4 py-2 text-xs font-semibold text-white shadow-xl backdrop-blur border border-slate-700">
-            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-            <span>{isRefreshing ? 'Refreshing data...' : pullDistance > 50 ? 'Release to Refresh' : 'Swipe / Drag down to refresh'}</span>
+          <div className="flex items-center gap-2 rounded-full bg-indigo-900/95 border border-indigo-500/50 px-5 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md">
+            <span className={isRefreshing ? 'animate-spin text-indigo-400' : 'text-indigo-400'}>🔄</span>
+            <span>{isRefreshing ? 'Syncing live complaints...' : pullDistance >= 25 ? 'Release to Refresh' : 'Drag down to refresh'}</span>
           </div>
         </div>
       )}
