@@ -1,15 +1,144 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useComplaints } from '../../context/ComplaintContext';
 import { EmptyState } from '../../components/FacilityUI';
 import { useToast } from '../../context/ToastContext';
 import { formatRelativeTime } from '../../utils/facility';
 
+function buildThreadsAll(complaints) {
+  const sorted = [...complaints].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  const childToRoot = {};
+  function getRootId(c) {
+    if (!c.parentComplaintId) return c.id;
+    if (childToRoot[c.id]) return childToRoot[c.id];
+    const parent = sorted.find((x) => x.id === c.parentComplaintId);
+    const root = parent ? getRootId(parent) : c.id;
+    childToRoot[c.id] = root;
+    return root;
+  }
+
+  const threads = {};
+
+  sorted.forEach((c) => {
+    const rootId = getRootId(c);
+    if (!threads[rootId]) threads[rootId] = [];
+    threads[rootId].push(c);
+  });
+
+  return Object.values(threads).sort((a, b) => {
+    const aLast = new Date(a[a.length - 1].createdAt);
+    const bLast = new Date(b[b.length - 1].createdAt);
+    return bLast - aLast;
+  });
+}
+
+function WorkflowHistory({ thread, formatRelativeTime }) {
+  const events = [];
+
+  thread.forEach((c, idx) => {
+    // 1. Raise Event
+    events.push({
+      type: 'raise',
+      title: idx === 0 ? '📝 Ticket Raised' : `🔄 Resubmitted Re-Complain #${idx}`,
+      time: c.createdAt,
+      description: `Description: "${c.description}" by ${c.employeeName || c.employeeId}`,
+    });
+
+    // 2. Rejection Events
+    if (c.status === 'rejected' && c.rejectedAt) {
+      events.push({
+        type: 'reject',
+        title: `❌ Rejected by Manager`,
+        time: c.rejectedAt,
+        description: `Reason: "${c.rejectionReason || 'No details'}"`,
+      });
+    }
+
+    if (Array.isArray(c.rejectionHistory)) {
+      c.rejectionHistory.forEach((r) => {
+        events.push({
+          type: 'reject',
+          title: `❌ Rejected (Rejection #${r.count || 1})`,
+          time: r.rejectedAt || c.rejectedAt || c.updatedAt,
+          description: `Reason: "${r.reason || 'No details'}"`,
+        });
+      });
+    }
+
+    // 3. Escalation Event
+    if (c.status === 'escalated' && c.escalatedAt) {
+      events.push({
+        type: 'escalate',
+        title: `▲ Escalated to Authority`,
+        time: c.escalatedAt,
+        description: c.escalationDescription ? `Reason: "${c.escalationDescription}"` : 'Auto-escalated due to repeated rejections.',
+      });
+    }
+
+    // 4. Completion Event
+    if (c.status === 'completed' && c.completedAt) {
+      events.push({
+        type: 'complete',
+        title: `✅ Completed & Resolved`,
+        time: c.completedAt,
+        description: c.completionDescription ? `Resolution note: "${c.completionDescription}"` : 'Issue marked resolved.',
+      });
+    }
+
+    // 5. Feedback Event
+    if (c.feedbackText && c.feedbackSubmittedAt) {
+      events.push({
+        type: 'feedback',
+        title: `💬 Feedback Submitted`,
+        time: c.feedbackSubmittedAt,
+        description: `Feedback: "${c.feedbackText}"`,
+      });
+    }
+
+    // 6. Endorsement Events
+    if (Array.isArray(c.endorsedBy)) {
+      c.endorsedBy.forEach((e) => {
+        events.push({
+          type: 'endorse',
+          title: `👥 Endorsement Added`,
+          time: e.endorsedAt || c.updatedAt,
+          description: `Endorsed by: ${e.employeeName || e.employeeId}`,
+        });
+      });
+    }
+  });
+
+  events.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+  return (
+    <div className="mt-4 border-t pt-3 space-y-3 bg-slate-50 p-3 rounded text-left">
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Workflow Timeline & History</p>
+      <div className="relative pl-4 border-l-2 border-slate-200 ml-2 space-y-4">
+        {events.map((ev, index) => (
+          <div key={index} className="relative">
+            <div className="absolute -left-[21px] top-1 bg-white border-2 border-indigo-600 rounded-full h-3 w-3" />
+            <div>
+              <p className="text-xs font-bold text-slate-800 flex justify-between gap-2">
+                <span>{ev.title}</span>
+                <span className="text-[10px] text-slate-400 font-normal">{ev.time ? formatRelativeTime(ev.time) : ''}</span>
+              </p>
+              <p className="text-xs text-slate-600 mt-0.5">{ev.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeePublic() {
   const { session } = useAuth();
   const { mergedGroups, complaints, endorseMerged, endorseIndividualComplaint } = useComplaints();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState('ongoing');
+  const [activeTab, setActiveTab] = useState('ongoing'); // ongoing or completed
+  const [expandedMerged, setExpandedMerged] = useState({});
+  const [expandedIndividual, setExpandedIndividual] = useState({});
 
   const endorseGroup = async (id) => {
     try {
@@ -33,7 +162,7 @@ export default function EmployeePublic() {
   const mergedOngoing = mergedGroups.filter(
     (group) =>
       Array.isArray(group.constituentComplaintIds) && group.constituentComplaintIds.length > 0 &&
-      (group.status === 'merged_public' || group.status === 'escalated')
+      (group.status === 'merged_public' || group.status === 'escalated' || group.status === 'acknowledged')
   );
 
   const mergedCompleted = mergedGroups.filter(
@@ -42,23 +171,30 @@ export default function EmployeePublic() {
       group.status === 'completed'
   );
 
-  // Filter individual public complaints
-  const individualOngoing = complaints.filter(
-    (c) =>
-      c.visibility === 'public' &&
-      !c.parentComplaintId &&
-      !c.mergedIntoId &&
-      c.status !== 'completed' &&
-      c.status !== 'rejected'
-  );
+  // Group complaints into threads
+  const threads = useMemo(() => buildThreadsAll(complaints), [complaints]);
 
-  const individualCompleted = complaints.filter(
-    (c) =>
-      c.visibility === 'public' &&
-      !c.parentComplaintId &&
-      !c.mergedIntoId &&
-      c.status === 'completed'
-  );
+  // Filter individual public complaints
+  const individualOngoing = threads.filter((tc) => {
+    const root = tc[0];
+    const latest = tc[tc.length - 1];
+    const isCompleted = tc.some(c => c.status === 'completed');
+    return (
+      latest.visibility === 'public' &&
+      !isCompleted &&
+      latest.status !== 'rejected'
+    );
+  });
+
+  const individualCompleted = threads.filter((tc) => {
+    const root = tc[0];
+    const latest = tc[tc.length - 1];
+    const isCompleted = tc.some(c => c.status === 'completed');
+    return (
+      latest.visibility === 'public' &&
+      isCompleted
+    );
+  });
 
   const mergedVisible = activeTab === 'ongoing' ? mergedOngoing : mergedCompleted;
   const individualPublicVisible = activeTab === 'ongoing' ? individualOngoing : individualCompleted;
@@ -96,30 +232,18 @@ export default function EmployeePublic() {
             const normalizedEndorsed = (group.endorsedBy || []).map((e) => typeof e === 'object' ? String(e.employeeId) : String(e));
             const uid = String(session.userId);
             const already = normalizedEndorsed.includes(uid);
+            const isExpanded = !!expandedMerged[group.id];
+
             return (
-              <details className="rounded-lg border bg-white p-4" key={group.id} open={activeTab === 'completed'}>
-                <summary className="cursor-pointer font-medium text-slate-800 flex justify-between">
+              <div className="rounded-lg border bg-white p-4 shadow-sm" key={group.id}>
+                <div className="font-medium text-slate-800 flex justify-between items-center cursor-pointer" onClick={() => setExpandedMerged(prev => ({ ...prev, [group.id]: !prev[group.id] }))}>
                   <span>Room {group.roomId} - {group.category}</span>
-                  {activeTab === 'completed' && <span className="text-xs text-green-600 font-semibold">Completed</span>}
-                </summary>
-                <p className="mt-2 text-sm text-slate-700">{group.managerDescription}</p>
-                <p className="text-xs text-slate-500 mt-1">Total endorsements: {total}</p>
-                {activeTab === 'ongoing' && (
-                  <button className="mt-2 rounded border px-3 py-1 text-sm disabled:opacity-50" disabled={already || group.status !== 'merged_public'} onClick={() => endorseGroup(group.id)}>
-                    {already ? 'Endorsed ✓' : 'Endorse'}
-                  </button>
-                )}
-                
-                {/* List constituent complaints with their details */}
-                <div className="mt-3 space-y-1.5 border-t pt-2">
-                  <p className="text-xs font-semibold text-slate-500">Merged Tickets:</p>
-                  {items.map((item) => (
-                    <div key={item.id} className="text-xs text-slate-600 bg-slate-50 p-1.5 rounded">
-                      <p className="font-semibold">{item.employeeName} ({item.employeeId}) - {item.createdAt ? formatRelativeTime(item.createdAt) : ''}</p>
-                      <p className="mt-0.5">{item.description}</p>
-                    </div>
-                  ))}
+                  <div className="flex items-center gap-2">
+                    {activeTab === 'completed' && <span className="text-xs text-green-600 font-semibold">Completed</span>}
+                    <span className="text-xs text-slate-400">{isExpanded ? '▲ Hide' : '▼ Expand'}</span>
+                  </div>
                 </div>
+                <p className="mt-2 text-sm text-slate-700">{group.managerDescription}</p>
 
                 {/* Detailed Endorsements list with times */}
                 {Array.isArray(group.endorsedBy) && group.endorsedBy.length > 0 && (
@@ -139,10 +263,30 @@ export default function EmployeePublic() {
                     </div>
                   </div>
                 )}
-                <span className={`inline-block rounded-full px-2 py-1 text-xs mt-2 ${group.status === 'escalated' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'}`}>
-                  {group.status === 'escalated' ? 'Escalated to Authority' : group.status === 'completed' ? 'Resolved & Closed' : 'Open for Endorsement'}
-                </span>
-              </details>
+
+                {activeTab === 'ongoing' && (
+                  <button className="mt-2 rounded border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-3 py-1 text-sm disabled:opacity-50 font-semibold" disabled={already || group.status !== 'merged_public'} onClick={() => endorseGroup(group.id)}>
+                    {already ? 'Endorsed ✓' : 'Endorse'}
+                  </button>
+                )}
+
+                {isExpanded && (
+                  <div className="mt-3 space-y-4 border-t pt-3">
+                    <p className="text-xs font-semibold text-slate-500">Constituent Tickets & Timelines:</p>
+                    {items.map((complaint) => {
+                      const complThread = threads.find(tc => tc.some(c => c.id === complaint.id)) || [complaint];
+                      return (
+                        <div key={complaint.id} className="border p-3 rounded bg-slate-50">
+                          <p className="font-semibold text-xs text-slate-800">
+                            Raised by {complaint.employeeName} ({complaint.employeeId})
+                          </p>
+                          <WorkflowHistory thread={complThread} formatRelativeTime={formatRelativeTime} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -156,30 +300,31 @@ export default function EmployeePublic() {
           {!individualPublicVisible.length ? (
             <EmptyState text={`No ${activeTab} public individual issues yet.`} />
           ) : (
-            individualPublicVisible.map((complaint) => {
-              const total = Array.isArray(complaint.endorsedBy) ? complaint.endorsedBy.length : 0;
-              const normalizedEndorsed = (complaint.endorsedBy || []).map((e) => typeof e === 'object' ? String(e.employeeId) : String(e));
+            individualPublicVisible.map((tc) => {
+              const root = tc[0];
+              const latest = tc[tc.length - 1];
+              const key = root.id;
+              const total = Array.isArray(latest.endorsedBy) ? latest.endorsedBy.length : 0;
+              const normalizedEndorsed = (latest.endorsedBy || []).map((e) => typeof e === 'object' ? String(e.employeeId) : String(e));
               const uid = String(session.userId);
               const already = normalizedEndorsed.includes(uid);
-              const isSubmitter = String(complaint.employeeId) === uid;
+              const isExpanded = !!expandedIndividual[key];
+
               return (
-                <div className="rounded-lg border bg-white p-4" key={complaint.id}>
-                  <div className="font-medium text-slate-800 flex justify-between">
-                    <span>Room {complaint.roomId} - {complaint.category}</span>
-                    {complaint.raisedToPublicAt && (
-                      <span className="text-xs text-slate-400 font-normal">Public since: {formatRelativeTime(complaint.raisedToPublicAt)}</span>
-                    )}
+                <div className="rounded-lg border bg-white p-4 shadow-sm" key={key}>
+                  <div className="font-medium text-slate-800 flex justify-between items-center cursor-pointer" onClick={() => setExpandedIndividual(prev => ({ ...prev, [key]: !prev[key] }))}>
+                    <span>Room {root.roomId} - {root.category}</span>
+                    <span className="text-xs text-slate-400">{isExpanded ? '▲ Hide' : '▼ View History & Timeline'}</span>
                   </div>
-                  <p className="mt-2 text-sm text-slate-700">{complaint.description}</p>
-                  <p className="text-xs text-slate-500 mt-2">Submitted by: {complaint.employeeName} ({complaint.createdAt ? formatRelativeTime(complaint.createdAt) : ''})</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Total endorsements: {total}</p>
+                  <p className="mt-2 text-sm text-slate-700">{latest.description}</p>
+                  <p className="text-xs text-slate-500 mt-2">Submitted by: {root.employeeName} ({root.createdAt ? formatRelativeTime(root.createdAt) : ''})</p>
 
                   {/* Detailed Endorsements list with times */}
-                  {Array.isArray(complaint.endorsedBy) && complaint.endorsedBy.length > 0 && (
+                  {Array.isArray(latest.endorsedBy) && latest.endorsedBy.length > 0 && (
                     <div className="mt-2 text-xs text-slate-500 border-t pt-2">
                       <p className="font-semibold text-slate-600 mb-1">Endorsed By:</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {complaint.endorsedBy.map((e, idx) => {
+                        {latest.endorsedBy.map((e, idx) => {
                           const empName = typeof e === 'object' ? e.employeeName : e;
                           const empId = typeof e === 'object' ? e.employeeId : e;
                           const t = typeof e === 'object' && e.endorsedAt ? ` (${formatRelativeTime(e.endorsedAt)})` : '';
@@ -193,34 +338,15 @@ export default function EmployeePublic() {
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center gap-3">
-                    {activeTab === 'ongoing' && (
-                      <button
-                        className="rounded border px-3 py-1 text-sm disabled:opacity-50 hover:bg-slate-50 transition"
-                        disabled={already || isSubmitter || complaint.status === 'completed' || complaint.status === 'rejected'}
-                        onClick={() => handleEndorseIndividual(complaint.id)}
-                      >
-                        {already ? 'Endorsed ✓' : isSubmitter ? 'Your Complaint' : 'Endorse'}
-                      </button>
-                    )}
-                    <span className={`rounded-full px-2 py-1 text-xs ${
-                      complaint.status === 'escalated' 
-                        ? 'bg-purple-100 text-purple-700' 
-                        : complaint.status === 'acknowledged' 
-                          ? 'bg-blue-100 text-blue-700'
-                          : complaint.status === 'completed'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-teal-100 text-teal-700'
-                    }`}>
-                      {complaint.status === 'escalated' 
-                        ? 'Escalated to Authority' 
-                        : complaint.status === 'acknowledged'
-                          ? 'Acknowledged & Pending'
-                          : complaint.status === 'completed'
-                            ? 'Resolved & Closed'
-                            : 'Open for Endorsement'}
-                    </span>
-                  </div>
+                  {activeTab === 'ongoing' && (
+                    <button className="mt-2 rounded border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-3 py-1 text-sm disabled:opacity-50 font-semibold" disabled={already || latest.status !== 'public'} onClick={() => handleEndorseIndividual(latest.id)}>
+                      {already ? 'Endorsed ✓' : 'Endorse'}
+                    </button>
+                  )}
+
+                  {isExpanded && (
+                    <WorkflowHistory thread={tc} formatRelativeTime={formatRelativeTime} />
+                  )}
                 </div>
               );
             })
@@ -230,4 +356,3 @@ export default function EmployeePublic() {
     </div>
   );
 }
-
