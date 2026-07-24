@@ -8,7 +8,13 @@ function loadSessionFromStorage() {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const token = window.localStorage.getItem('fd_token');
+    if (raw && token) {
+      return JSON.parse(raw);
+    }
+    window.localStorage.removeItem(SESSION_KEY);
+    window.localStorage.removeItem('fd_token');
+    return null;
   } catch {
     return null;
   }
@@ -24,6 +30,7 @@ export function AuthProvider({ children }) {
       window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     } else {
       window.localStorage.removeItem(SESSION_KEY);
+      setToken(null);
     }
   }, [session]);
 

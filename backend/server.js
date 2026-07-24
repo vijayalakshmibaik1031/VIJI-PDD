@@ -1683,7 +1683,7 @@ app.patch("/api/complaints/:id/raise-to-public", requireAuth, async (req, res) =
 // POST /api/complaints/:id/endorse (Employees)
 app.post("/api/complaints/:id/endorse", requireAuth, async (req, res) => {
   try {
-    const { employeeId } = req.body;
+    const employeeId = (req.body && req.body.employeeId) || (req.user && req.user.userId);
     const { id } = req.params;
     if (!employeeId) return res.status(400).json({ error: "employeeId required" });
 
@@ -1699,15 +1699,19 @@ app.post("/api/complaints/:id/endorse", requireAuth, async (req, res) => {
     );
 
     if (insertResult.rowCount === 0) {
-      return res.status(400).json({ error: "Already endorsed" });
+      return res.status(400).json({ error: "You have already endorsed this complaint" });
     }
 
     // Fetch updated endorsements list
     const endorsementsResult = await pool.query(
-      "SELECT employee_id FROM complaint_endorsements WHERE complaint_id = $1 ORDER BY employee_id",
+      `SELECT e.employee_id AS "employeeId", emp.name AS "employeeName", e.endorsed_at AS "endorsedAt"
+       FROM complaint_endorsements e
+       LEFT JOIN employees emp ON emp.id = e.employee_id
+       WHERE e.complaint_id = $1
+       ORDER BY e.endorsed_at`,
       [id],
     );
-    const endorsedBy = endorsementsResult.rows.map((row) => row.employee_id);
+    const endorsedBy = endorsementsResult.rows;
 
     // Auto-escalate individual public complaints at 10+ endorsements
     if (endorsedBy.length >= 10) {
@@ -2057,8 +2061,21 @@ app.post("/api/rooms", requireAuth, async (req, res) => {
     if (!roomNumber || !roomNumber.trim()) {
       return res.status(400).json({ error: "Room number is required" });
     }
+    if (floorNumber === undefined || floorNumber === null || floorNumber === '') {
+      return res.status(400).json({ error: "Please create a floor with a Floor Manager first before adding rooms." });
+    }
     const normalizedRoom = roomNumber.trim();
-    const normalizedFloor = (floorNumber || "1").trim();
+    const normalizedFloor = String(floorNumber).trim();
+
+    // Verify floor manager exists for this floor
+    const floorCheck = await pool.query(
+      "SELECT 1 FROM managers WHERE floor_number = $1",
+      [normalizedFloor]
+    );
+    if (floorCheck.rows.length === 0) {
+      return res.status(400).json({ error: "Cannot create room: No Floor Manager exists for this floor. Please create the floor with a Floor Manager first." });
+    }
+
     const existing = await pool.query("SELECT 1 FROM rooms WHERE LOWER(room_number) = LOWER($1)", [normalizedRoom]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: "Room number already exists" });

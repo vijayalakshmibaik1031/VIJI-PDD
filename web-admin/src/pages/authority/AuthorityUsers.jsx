@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../../utils/apiService';
+import { formatFloorName } from '../../utils/facility';
 
 export default function AuthorityUsers() {
   const [activeTab, setActiveTab] = useState('managers'); // 'managers' | 'employees'
@@ -195,40 +196,42 @@ export default function AuthorityUsers() {
           <div className="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-md">
+        <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md shadow-xl">
           <table className="w-full text-left text-sm border-collapse text-slate-300">
-            <thead className="bg-slate-950/80 text-[11px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-800">
+            <thead className="bg-slate-950 text-[11px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-800">
               <tr>
                 <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Password Hash</th>
+                {activeTab === 'managers' && <th className="px-6 py-4">Managed Floor</th>}
                 <th className="px-6 py-4">Created At</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-800/80">
               {activeTab === 'managers' ? (
                 managers.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8 text-slate-500">No managers found.</td>
+                    <td colSpan="6" className="text-center py-10 text-slate-500 font-medium">No floor managers created yet. Use "Manage Rooms" to add floors.</td>
                   </tr>
                 ) : (
                   managers.map((mgr) => (
-                    <tr key={mgr.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-mono text-indigo-400">{mgr.id}</td>
+                    <tr key={mgr.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-indigo-400">{mgr.id}</td>
                       <td className="px-6 py-4 font-semibold text-white">{mgr.name}</td>
-                      <td className="px-6 py-4 text-slate-400">{mgr.email || 'N/A'}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500 max-w-xs truncate" title={mgr.password}>
-                        {mgr.password}
+                      <td className="px-6 py-4 text-slate-300">{mgr.email || 'N/A'}</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">
+                          🏢 {formatFloorName(mgr.floor_number)}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-6 py-4 text-slate-400 text-xs">
                         {new Date(mgr.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => openEditModal('manager', mgr)}
-                          className="rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition"
+                          className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
                         >
                           Edit
                         </button>
@@ -239,24 +242,21 @@ export default function AuthorityUsers() {
               ) : (
                 employees.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8 text-slate-500">No employees found.</td>
+                    <td colSpan="5" className="text-center py-10 text-slate-500 font-medium">No employees found.</td>
                   </tr>
                 ) : (
                   employees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-mono text-violet-400">{emp.id}</td>
+                    <tr key={emp.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-violet-400">{emp.id}</td>
                       <td className="px-6 py-4 font-semibold text-white">{emp.name}</td>
-                      <td className="px-6 py-4 text-slate-400">{emp.email || 'N/A'}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500 max-w-xs truncate" title={emp.password}>
-                        {emp.password}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-6 py-4 text-slate-300">{emp.email || 'N/A'}</td>
+                      <td className="px-6 py-4 text-slate-400 text-xs">
                         {new Date(emp.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => openEditModal('employee', emp)}
-                          className="rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition"
+                          className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
                         >
                           Edit
                         </button>
