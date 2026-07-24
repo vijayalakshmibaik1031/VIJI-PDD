@@ -24,6 +24,12 @@ export const apiCall = async (endpoint, options = {}, token = null) => {
     cleanEndpoint = '/' + cleanEndpoint;
   }
 
+  const isAuthEndpoint = cleanEndpoint.includes('/login') || cleanEndpoint.includes('/register') || cleanEndpoint.includes('/check-verification');
+  if (!token && !isAuthEndpoint) {
+    console.warn(`[API Call Skipped] ${cleanEndpoint}: No auth token provided`);
+    return [];
+  }
+
   try {
     const response = await fetch(`${BASE_URL}${cleanEndpoint}`, config);
     const data = await response.json().catch(() => ({}));

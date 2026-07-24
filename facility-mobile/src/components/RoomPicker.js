@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useComplaints } from '../context/ComplaintContext';
 
+function formatFloorName(floorNum) {
+  if (floorNum === undefined || floorNum === null || floorNum === '') return 'N/A';
+  const num = parseInt(floorNum, 10);
+  if (isNaN(num)) return `Floor ${floorNum}`;
+  if (num === 0) return 'Ground Floor';
+  if (num === 1) return '1st Floor';
+  if (num === 2) return '2nd Floor';
+  if (num === 3) return '3rd Floor';
+  return `${num}th Floor`;
+}
+
 export const RoomPicker = ({ selected, onSelect }) => {
   const { rooms } = useComplaints();
   const [activeFloor, setActiveFloor] = useState(null);
@@ -9,7 +20,7 @@ export const RoomPicker = ({ selected, onSelect }) => {
   // Group rooms by floor_number
   const groups = {};
   rooms.forEach((room) => {
-    const floor = room.floor_number || '1';
+    const floor = room.floor_number || '0';
     if (!groups[floor]) {
       groups[floor] = [];
     }
@@ -52,7 +63,7 @@ export const RoomPicker = ({ selected, onSelect }) => {
               onPress={() => setActiveFloor(isActive ? null : floor)}
             >
               <Text style={[styles.floorBtnText, isActive && styles.floorBtnTextActive]}>
-                🏢 Floor {floor}
+                🏢 {formatFloorName(floor)}
               </Text>
             </TouchableOpacity>
           );
