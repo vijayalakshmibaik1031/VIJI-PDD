@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useComplaints } from '../../context/ComplaintContext';
 import { CardMeta, EmptyState, StatusBadge } from '../../components/FacilityUI';
 import { apiService } from '../../utils/apiService';
+import { formatRelativeTime } from '../../utils/facility';
 import EmployeeRaise from './EmployeeRaise';
 
 function buildThreads(complaints, employeeId) {
@@ -206,7 +207,7 @@ export default function EmployeePrivate() {
             {isEscalated && (
               <div className="mt-2 rounded border border-purple-900/50 bg-purple-950/30 p-3 text-sm">
                 <p className="font-semibold text-fuchsia-400 flex items-center gap-1">
-                  <span>▲</span> Escalated to Authority
+                  <span>▲</span> Escalated to Authority {latest.escalatedAt ? `(${formatRelativeTime(latest.escalatedAt)})` : ''}
                 </p>
                 {escalatedComplaint?.visibility === 'public' ? (
                   <p className="mt-0.5 text-purple-300 text-xs">
@@ -232,7 +233,7 @@ export default function EmployeePrivate() {
                 <p className="font-medium">
                   {latest.completionDescription
                     ? `Note: ${latest.completionDescription}`
-                    : 'Issue resolved'}
+                    : 'Issue resolved'} {latest.completedAt ? `(${formatRelativeTime(latest.completedAt)})` : ''}
                 </p>
                 {latest.completionPhotoUri && (
                   <img
@@ -270,7 +271,7 @@ export default function EmployeePrivate() {
                       <div className="mt-1 space-y-0.5">
                         {c.rejectionHistory.map((r, ri) => (
                           <p key={ri} className="text-red-600">
-                            Rejection {r.count}: {r.reason}
+                            Rejection {r.count}: {r.reason} {r.rejectedAt ? `(${formatRelativeTime(r.rejectedAt)})` : ''}
                           </p>
                         ))}
                       </div>

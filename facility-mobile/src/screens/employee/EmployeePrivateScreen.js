@@ -9,6 +9,9 @@ export const EmployeePrivateScreen = () => {
   const { complaints, fetchComplaints, createComplaint, recomplain, loading } = useComplaints();
   const { user } = useAuth();
   const [filter, setFilter] = useState('all');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterDay, setFilterDay] = useState('');
 
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [recomplainModalVisible, setRecomplainModalVisible] = useState(false);
@@ -27,8 +30,19 @@ export const EmployeePrivateScreen = () => {
   );
 
   const filteredList = myComplaints.filter((c) => {
-    if (filter === 'all') return true;
-    return c.status?.toLowerCase() === filter;
+    if (filter !== 'all' && c.status?.toLowerCase() !== filter) return false;
+
+    const createdDate = new Date(c.created_at || c.createdAt);
+    if (!isNaN(createdDate.getTime())) {
+      const y = createdDate.getFullYear().toString();
+      const m = (createdDate.getMonth() + 1).toString();
+      const d = createdDate.getDate().toString();
+
+      if (filterYear && y !== filterYear) return false;
+      if (filterMonth && m !== parseInt(filterMonth, 10).toString()) return false;
+      if (filterDay && d !== parseInt(filterDay, 10).toString()) return false;
+    }
+    return true;
   });
 
   const handleOpenRecomplain = (complaint) => {
@@ -97,6 +111,37 @@ export const EmployeePrivateScreen = () => {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Date Inputs Filter */}
+      <View style={styles.dateFilterContainer}>
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Day (DD)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterDay}
+          onChangeText={setFilterDay}
+          maxLength={2}
+        />
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Month (MM)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterMonth}
+          onChangeText={setFilterMonth}
+          maxLength={2}
+        />
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Year (YYYY)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterYear}
+          onChangeText={setFilterYear}
+          maxLength={4}
+        />
       </View>
 
       <View style={styles.content}>
@@ -223,4 +268,22 @@ const styles = StyleSheet.create({
   cancelText: { color: '#94A3B8', fontWeight: '700' },
   confirmBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#D97706' },
   confirmText: { color: '#FFFFFF', fontWeight: '700' },
+  dateFilterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  dateInput: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: '#F8FAFC',
+    fontSize: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
 });

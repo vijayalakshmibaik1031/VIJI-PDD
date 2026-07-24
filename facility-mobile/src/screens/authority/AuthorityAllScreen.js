@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, Text, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, Text, RefreshControl, TouchableOpacity, TextInput } from 'react-native';
 import { CustomHeader } from '../../components/CustomHeader';
 import { ComplaintCard } from '../../components/ComplaintCard';
 import { MergedGroupCard } from '../../components/MergedGroupCard';
@@ -9,6 +9,9 @@ export const AuthorityAllScreen = () => {
   const { complaints, mergedGroups, fetchComplaints, fetchMergedGroups, loading } = useComplaints();
   const [filter, setFilter] = useState('all');
   const [viewType, setViewType] = useState('tickets');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterDay, setFilterDay] = useState('');
 
   useEffect(() => {
     fetchComplaints();
@@ -16,13 +19,35 @@ export const AuthorityAllScreen = () => {
   }, [fetchComplaints, fetchMergedGroups]);
 
   const filteredComplaints = complaints.filter((c) => {
-    if (filter === 'all') return true;
-    return c.status?.toLowerCase() === filter;
+    if (filter !== 'all' && c.status?.toLowerCase() !== filter) return false;
+
+    const createdDate = new Date(c.created_at || c.createdAt);
+    if (!isNaN(createdDate.getTime())) {
+      const y = createdDate.getFullYear().toString();
+      const m = (createdDate.getMonth() + 1).toString();
+      const d = createdDate.getDate().toString();
+
+      if (filterYear && y !== filterYear) return false;
+      if (filterMonth && m !== parseInt(filterMonth, 10).toString()) return false;
+      if (filterDay && d !== parseInt(filterDay, 10).toString()) return false;
+    }
+    return true;
   });
 
   const filteredGroups = mergedGroups.filter((g) => {
-    if (filter === 'all') return true;
-    return g.status?.toLowerCase() === filter;
+    if (filter !== 'all' && g.status?.toLowerCase() !== filter) return false;
+
+    const createdDate = new Date(g.created_at || g.createdAt);
+    if (!isNaN(createdDate.getTime())) {
+      const y = createdDate.getFullYear().toString();
+      const m = (createdDate.getMonth() + 1).toString();
+      const d = createdDate.getDate().toString();
+
+      if (filterYear && y !== filterYear) return false;
+      if (filterMonth && m !== parseInt(filterMonth, 10).toString()) return false;
+      if (filterDay && d !== parseInt(filterDay, 10).toString()) return false;
+    }
+    return true;
   });
 
   return (
@@ -63,6 +88,37 @@ export const AuthorityAllScreen = () => {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Date Inputs Filter */}
+      <View style={styles.dateFilterContainer}>
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Day (DD)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterDay}
+          onChangeText={setFilterDay}
+          maxLength={2}
+        />
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Month (MM)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterMonth}
+          onChangeText={setFilterMonth}
+          maxLength={2}
+        />
+        <TextInput
+          style={styles.dateInput}
+          placeholder="Year (YYYY)"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          value={filterYear}
+          onChangeText={setFilterYear}
+          maxLength={4}
+        />
       </View>
 
       <View style={styles.content}>
@@ -149,4 +205,21 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems: 'center', marginTop: 60, padding: 20 },
   emptyTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: '700' },
   emptySub: { color: '#94A3B8', fontSize: 14, marginTop: 6 },
+  dateFilterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
+  dateInput: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: '#F8FAFC',
+    fontSize: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
 });

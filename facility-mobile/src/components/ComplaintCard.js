@@ -2,6 +2,19 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { StatusBadge } from './StatusBadge';
 
+export function formatRelativeTime(isoString) {
+  if (!isoString) return 'Recent';
+  const diff = Date.now() - new Date(isoString).getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 export const ComplaintCard = ({
   complaint,
   onApprove,
@@ -70,10 +83,12 @@ export const ComplaintCard = ({
       </View>
 
       {/* Rejection Details */}
-      {complaint.status === 'rejected' && complaint.rejection_reason ? (
+      {complaint.status === 'rejected' && (complaint.rejection_reason || complaint.rejectionReason) ? (
         <View style={styles.rejectionBox}>
           <Text style={styles.rejectionTitle}>❌ Rejection Reason:</Text>
-          <Text style={styles.rejectionText}>{complaint.rejection_reason}</Text>
+          <Text style={styles.rejectionText}>
+            {complaint.rejection_reason || complaint.rejectionReason} {complaint.rejected_at || complaint.rejectedAt ? `(${formatRelativeTime(complaint.rejected_at || complaint.rejectedAt)})` : ''}
+          </Text>
         </View>
       ) : null}
 
@@ -82,7 +97,7 @@ export const ComplaintCard = ({
         <View style={styles.completionBox}>
           <Text style={styles.completionTitle}>✅ Resolved / Completion Notes:</Text>
           <Text style={styles.completionText}>
-            {complaint.completion_description || complaint.completionDescription || complaint.resolutionNotes || 'Issue resolved successfully.'}
+            {complaint.completion_description || complaint.completionDescription || complaint.resolutionNotes || 'Issue resolved successfully.'} {complaint.completed_at || complaint.completedAt ? `(${formatRelativeTime(complaint.completed_at || complaint.completedAt)})` : ''}
           </Text>
           {complaint.completion_photo_uri || complaint.completionPhotoUri ? (
             <View style={styles.photoContainer}>
@@ -97,14 +112,14 @@ export const ComplaintCard = ({
         <View style={styles.escalatedBox}>
           <Text style={styles.escalatedTitle}>🚨 Escalated to Authority:</Text>
           <Text style={styles.escalatedText}>
-            {complaint.escalation_description || complaint.escalationDescription || 'Escalated to authority for review.'}
+            {complaint.escalation_description || complaint.escalationDescription || 'Escalated to authority for review.'} {complaint.escalated_at || complaint.escalatedAt ? `(${formatRelativeTime(complaint.escalated_at || complaint.escalatedAt)})` : ''}
           </Text>
         </View>
       )}
 
       <View style={styles.cardFooter}>
         <Text style={styles.dateText}>
-          📅 {complaint.created_at ? new Date(complaint.created_at).toLocaleDateString() : 'Recent'}
+          📅 {complaint.created_at || complaint.createdAt ? formatRelativeTime(complaint.created_at || complaint.createdAt) : 'Recent'}
         </Text>
 
         <View style={styles.actionRow}>

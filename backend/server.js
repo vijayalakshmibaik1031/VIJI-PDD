@@ -263,14 +263,21 @@ async function initializeDatabase() {
         completion_photo_uri TEXT,
         completed_at TIMESTAMP,
         rejection_history JSONB DEFAULT '[]',
+        rejected_at TIMESTAMP,
+        resubmitted_at TIMESTAMP,
+        escalated_at TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
       )
     `);
     // Add columns for existing DBs
     await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) NOT NULL DEFAULT 'private'`);
-    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS parent_complaint_id VARCHAR(255)`)
-      .catch(() => {}); // ignore if already exists
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS parent_complaint_id VARCHAR(255)`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS resubmitted_at TIMESTAMP`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMP`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`).catch(() => {});
     console.log("✓ complaints table ready");
 
     // Create merged_groups table
@@ -1367,7 +1374,7 @@ app.patch("/api/complaints/:id/status", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Status is required" });
     }
 
-    await pool.query("UPDATE complaints SET status = $1 WHERE id = $2", [status, id]);
+    await pool.query("UPDATE complaints SET status = $1, updated_at = NOW() WHERE id = $2", [status, id]);
     res.json({ message: "Complaint status updated successfully" });
   } catch (err) {
     console.error(err);
@@ -1383,7 +1390,7 @@ app.patch("/api/complaints/:id/complete", requireAuth, async (req, res) => {
 
     await pool.query(
       `UPDATE complaints 
-       SET status = $1, completion_description = $2, completion_photo_uri = $3, completed_at = NOW()
+       SET status = $1, completion_description = $2, completion_photo_uri = $3, completed_at = NOW(), updated_at = NOW()
        WHERE id = $4`,
       ["completed", description || null, photoUri || null, id]
     );
@@ -1432,14 +1439,14 @@ app.patch("/api/complaints/:id/reject", requireAuth, async (req, res) => {
     // Auto-escalate at 5 or more total rejections — do NOT reject, go straight to escalated
     if (nextCount >= 5) {
       await pool.query(
-        `UPDATE complaints SET status = $1, escalation_description = $2, rejection_history = $3 WHERE id = $4`,
+        `UPDATE complaints SET status = $1, escalation_description = $2, rejection_history = $3, escalated_at = NOW(), updated_at = NOW() WHERE id = $4`,
         ["escalated", reason.trim(), JSON.stringify(newHistory), id]
       );
       return res.json({ message: "Auto-escalated to authority after 5 rejections", escalated: true, count: nextCount });
     }
 
     await pool.query(
-      "UPDATE complaints SET status = $1, rejection_reason = $2, rejection_history = $3 WHERE id = $4",
+      "UPDATE complaints SET status = $1, rejection_reason = $2, rejection_history = $3, rejected_at = NOW(), updated_at = NOW() WHERE id = $4",
       ["rejected", reason.trim(), JSON.stringify(newHistory), id]
     );
 
@@ -1460,7 +1467,7 @@ app.patch("/api/complaints/:id/escalate", requireAuth, async (req, res) => {
     }
 
     await pool.query(
-      "UPDATE complaints SET status = $1, escalation_description = $2 WHERE id = $3",
+      "UPDATE complaints SET status = $1, escalation_description = $2, escalated_at = NOW(), updated_at = NOW() WHERE id = $3",
       ["escalated", reason, id]
     );
 
@@ -1605,6 +1612,12 @@ app.post("/api/complaints/mark-recomplained", requireAuth, async (req, res) => {
       [complaintId, employeeId, roomId, category]
     );
 
+    // Mark the parent complaint with resubmitted_at and updated_at timestamps
+    await pool.query(
+      `UPDATE complaints SET resubmitted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [complaintId]
+    );
+
     // FIX #5: Count distinct employees who re-complained on THIS specific
     // complaint (not across all complaints for the room+category). This is what
     // drives the per-complaint auto-escalation threshold.
@@ -1617,7 +1630,7 @@ app.post("/api/complaints/mark-recomplained", requireAuth, async (req, res) => {
     // Auto-escalate the current complaint after 5th re-complaint submitted
     if (reComplaintCount >= 5) {
       await pool.query(
-        `UPDATE complaints SET status = 'escalated', escalation_description = $1
+        `UPDATE complaints SET status = 'escalated', escalation_description = $1, escalated_at = NOW(), updated_at = NOW()
          WHERE id = $2 AND status NOT IN ('escalated', 'completed', 'acknowledged')`,
         [`Auto-escalated: employee submitted ${reComplaintCount} re-complaints`, complaintId]
       );

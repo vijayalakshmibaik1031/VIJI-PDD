@@ -62,6 +62,10 @@ export function ComplaintProvider({ children }) {
     completionDescription: complaint.completion_description || complaint.completionDescription,
     completionPhotoUri: complaint.completion_photo_uri || complaint.completionPhotoUri,
     completedAt: complaint.completed_at || complaint.completedAt,
+    rejectedAt: complaint.rejected_at || complaint.rejectedAt,
+    resubmittedAt: complaint.resubmitted_at || complaint.resubmittedAt,
+    escalatedAt: complaint.escalated_at || complaint.escalatedAt,
+    updatedAt: complaint.updated_at || complaint.updatedAt,
     rejectionHistory:
       typeof complaint.rejection_history === 'string'
         ? JSON.parse(complaint.rejection_history || '[]')
