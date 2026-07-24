@@ -7,18 +7,22 @@ import { useComplaints } from '../../context/ComplaintContext';
 
 export const ManagerCompletedScreen = () => {
   const { complaints, mergedGroups, fetchComplaints, fetchMergedGroups, loading } = useComplaints();
-  const [activeTab, setActiveTab] = useState('tickets');
+  const [activeTab, setActiveTab] = useState('private'); // private, public, merged
 
   useEffect(() => {
     fetchComplaints();
     fetchMergedGroups();
   }, [fetchComplaints, fetchMergedGroups]);
 
-  const completedTickets = complaints.filter(
-    (c) => c.status?.toLowerCase() === 'completed' || c.status?.toLowerCase() === 'resolved'
+  const privateDone = complaints.filter(
+    (c) => (c.status?.toLowerCase() === 'completed' || c.status?.toLowerCase() === 'resolved') && c.visibility === 'private'
   );
 
-  const completedMergedGroups = mergedGroups.filter(
+  const publicDone = complaints.filter(
+    (c) => (c.status?.toLowerCase() === 'completed' || c.status?.toLowerCase() === 'resolved') && c.visibility === 'public'
+  );
+
+  const mergedDone = mergedGroups.filter(
     (g) => g.status?.toLowerCase() === 'completed'
   );
 
@@ -28,28 +32,37 @@ export const ManagerCompletedScreen = () => {
       
       <View style={styles.tabRow}>
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'tickets' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('tickets')}
+          style={[styles.tabBtn, activeTab === 'private' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('private')}
         >
-          <Text style={[styles.tabBtnText, activeTab === 'tickets' && styles.tabBtnTextActive]}>
-            Tickets ({completedTickets.length})
+          <Text style={[styles.tabBtnText, activeTab === 'private' && styles.tabBtnTextActive]}>
+            Private ({privateDone.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'groups' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('groups')}
+          style={[styles.tabBtn, activeTab === 'public' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('public')}
         >
-          <Text style={[styles.tabBtnText, activeTab === 'groups' && styles.tabBtnTextActive]}>
-            Merged Groups ({completedMergedGroups.length})
+          <Text style={[styles.tabBtnText, activeTab === 'public' && styles.tabBtnTextActive]}>
+            Public ({publicDone.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'merged' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('merged')}
+        >
+          <Text style={[styles.tabBtnText, activeTab === 'merged' && styles.tabBtnTextActive]}>
+            Merged ({mergedDone.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'tickets' ? (
+        {activeTab === 'private' && (
           <FlatList
-            data={completedTickets}
+            data={privateDone}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => <ComplaintCard complaint={item} />}
             refreshControl={
@@ -64,14 +77,40 @@ export const ManagerCompletedScreen = () => {
             }
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyTitle}>No Completed Tickets</Text>
-                <Text style={styles.emptySub}>No individual tickets marked completed yet.</Text>
+                <Text style={styles.emptyTitle}>No Completed Private Tickets</Text>
+                <Text style={styles.emptySub}>No private tickets completed yet.</Text>
               </View>
             }
           />
-        ) : (
+        )}
+
+        {activeTab === 'public' && (
           <FlatList
-            data={completedMergedGroups}
+            data={publicDone}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <ComplaintCard complaint={item} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={() => {
+                  fetchComplaints();
+                  fetchMergedGroups();
+                }}
+                tintColor="#6366F1"
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>No Completed Public Tickets</Text>
+                <Text style={styles.emptySub}>No public tickets completed yet.</Text>
+              </View>
+            }
+          />
+        )}
+
+        {activeTab === 'merged' && (
+          <FlatList
+            data={mergedDone}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => <MergedGroupCard group={item} />}
             refreshControl={
@@ -86,8 +125,8 @@ export const ManagerCompletedScreen = () => {
             }
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyTitle}>No Completed Groups</Text>
-                <Text style={styles.emptySub}>No merged master groups marked completed yet.</Text>
+                <Text style={styles.emptyTitle}>No Completed Merged Groups</Text>
+                <Text style={styles.emptySub}>No merged groups completed yet.</Text>
               </View>
             }
           />
@@ -119,7 +158,7 @@ const styles = StyleSheet.create({
   },
   tabBtnText: {
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabBtnTextActive: {
