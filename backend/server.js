@@ -134,7 +134,6 @@ const pool = new Pool(poolConfig);
 // Seed manager and authority with hashed passwords (idempotent — safe to run every startup)
 async function seedStaticAccounts() {
   const accounts = [
-    { table: "managers",    id: "manager", name: "manager",    plainPassword: "man123", email: "manager@xyzcompany.com" },
     { table: "authorities", id: "auth",    name: "auth",       plainPassword: "auth123" },
     { table: "employees",   id: "emp001",  name: "Employee 1", plainPassword: "Test@123456", email: "employee1@xyzcompany.com" },
   ];
@@ -226,11 +225,13 @@ async function initializeDatabase() {
         email VARCHAR(255) UNIQUE,
         password VARCHAR(255) NOT NULL,
         needs_password_reset BOOLEAN DEFAULT TRUE,
+        floor_number VARCHAR(50) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
+    await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) UNIQUE").catch(() => {});
     console.log("✓ managers table ready");
 
     // Create authorities table
@@ -863,11 +864,92 @@ app.post("/api/managers/login", async (req, res) => {
 
 app.get("/api/managers", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, password, created_at FROM managers ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, created_at FROM managers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch managers" });
+  }
+});
+
+// POST /api/managers/floor-manager (Authority only)
+app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: "Missing required fields: name, email" });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith("@xyzcompany.com")) {
+      return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
+    }
+
+    // Check if email is already taken
+    const existingEmail = await pool.query(
+      "SELECT 1 FROM managers WHERE lower(email) = lower($1)",
+      [normalizedEmail]
+    );
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: "Manager with this email already exists" });
+    }
+
+    // Calculate next floor number in ascending order (0, 1, 2, 3...)
+    const floorQuery = await pool.query(
+      "SELECT floor_number FROM managers WHERE floor_number IS NOT NULL"
+    );
+    let nextFloorNum = 0;
+    if (floorQuery.rows.length > 0) {
+      const validFloors = floorQuery.rows
+        .map(r => parseInt(r.floor_number, 10))
+        .filter(n => !isNaN(n));
+      if (validFloors.length > 0) {
+        nextFloorNum = Math.max(...validFloors) + 1;
+      }
+    }
+    const nextFloorStr = String(nextFloorNum);
+
+    // Auto-generate unique manager ID starting with 'man' followed by 8 numbers
+    let managerId = "";
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 100) {
+      attempts++;
+      const random8 = Math.floor(10000000 + Math.random() * 90000000).toString();
+      managerId = `man${random8}`;
+      const checkId = await pool.query("SELECT 1 FROM managers WHERE id = $1", [managerId]);
+      if (checkId.rows.length === 0) {
+        isUnique = true;
+      }
+    }
+    if (!isUnique) {
+      return res.status(500).json({ error: "Failed to generate unique Manager ID" });
+    }
+
+    const defaultPassword = "Welcome123$";
+    const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
+
+    await pool.query(
+      "INSERT INTO managers (id, name, email, password, needs_password_reset, floor_number) VALUES ($1, $2, $3, $4, TRUE, $5)",
+      [managerId, normalizedName, normalizedEmail, hashedPassword, nextFloorStr]
+    );
+
+    res.status(201).json({
+      message: "Floor manager created successfully",
+      managerId,
+      name: normalizedName,
+      email: normalizedEmail,
+      floorNumber: nextFloorStr
+    });
+  } catch (err) {
+    console.error("Floor manager creation error:", err.message);
+    res.status(500).json({ error: "Failed to create floor manager", details: err.message });
   }
 });
 
@@ -1315,27 +1397,52 @@ app.post("/api/complaints", requireAuth, async (req, res) => {
 
 app.get("/api/complaints", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT c.*, 
-              COALESCE(
-                jsonb_agg(
-                  jsonb_build_object(
-                    'employeeId', e.employee_id,
-                    'employeeName', emp.name,
-                    'endorsedAt', e.endorsed_at
-                  ) ORDER BY e.endorsed_at
-                ) FILTER (WHERE e.employee_id IS NOT NULL), 
-                '[]'
-              ) AS endorsed_by
-       FROM complaints c
-       LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
-       LEFT JOIN employees emp ON emp.id = e.employee_id
-       GROUP BY c.id
-       ORDER BY c.created_at DESC`
-    );
+    const { role, userId } = req.user;
+
+    let whereClause = "";
+    const params = [];
+
+    if (role === "manager") {
+      const mgrRes = await pool.query("SELECT floor_number FROM managers WHERE id = $1", [userId]);
+      if (mgrRes.rows.length === 0 || mgrRes.rows[0].floor_number === null || mgrRes.rows[0].floor_number === undefined) {
+        return res.json([]);
+      }
+      whereClause = "WHERE r.floor_number = $1";
+      params.push(mgrRes.rows[0].floor_number);
+    } else if (role === "employee") {
+      whereClause = "WHERE (c.employee_id = $1 OR c.visibility = 'public' OR c.merged_into_id IS NOT NULL)";
+      params.push(userId);
+    }
+
+    const query = `
+      SELECT c.*, 
+             COALESCE(r.floor_number, '1') AS floor_number,
+             m.name AS floor_manager_name,
+             m.id AS floor_manager_id,
+             COALESCE(
+               jsonb_agg(
+                 jsonb_build_object(
+                   'employeeId', e.employee_id,
+                   'employeeName', emp.name,
+                   'endorsedAt', e.endorsed_at
+                 ) ORDER BY e.endorsed_at
+               ) FILTER (WHERE e.employee_id IS NOT NULL), 
+               '[]'
+             ) AS endorsed_by
+      FROM complaints c
+      LEFT JOIN rooms r ON c.room_id = r.room_number
+      LEFT JOIN managers m ON r.floor_number = m.floor_number
+      LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+      LEFT JOIN employees emp ON emp.id = e.employee_id
+      ${whereClause}
+      GROUP BY c.id, r.floor_number, m.name, m.id
+      ORDER BY c.created_at DESC
+    `;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
+    console.error("Fetch complaints error:", err);
     res.status(500).json({ error: "Failed to fetch complaints" });
   }
 });
@@ -1345,6 +1452,9 @@ app.get("/api/complaints/:id", requireAuth, async (req, res) => {
     const { id } = req.params;
     const result = await pool.query(
       `SELECT c.*, 
+              COALESCE(r.floor_number, '1') AS floor_number,
+              m.name AS floor_manager_name,
+              m.id AS floor_manager_id,
               COALESCE(
                 jsonb_agg(
                   jsonb_build_object(
@@ -1356,10 +1466,12 @@ app.get("/api/complaints/:id", requireAuth, async (req, res) => {
                 '[]'
               ) AS endorsed_by
        FROM complaints c
+       LEFT JOIN rooms r ON c.room_id = r.room_number
+       LEFT JOIN managers m ON r.floor_number = m.floor_number
        LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
        LEFT JOIN employees emp ON emp.id = e.employee_id
        WHERE c.id = $1
-       GROUP BY c.id`,
+       GROUP BY c.id, r.floor_number, m.name, m.id`,
       [id]
     );
     
@@ -1379,6 +1491,9 @@ app.get("/api/complaints/employee/:employeeId", requireAuth, async (req, res) =>
     const { employeeId } = req.params;
     const result = await pool.query(
       `SELECT c.*, 
+              COALESCE(r.floor_number, '1') AS floor_number,
+              m.name AS floor_manager_name,
+              m.id AS floor_manager_id,
               COALESCE(
                 jsonb_agg(
                   jsonb_build_object(
@@ -1390,10 +1505,12 @@ app.get("/api/complaints/employee/:employeeId", requireAuth, async (req, res) =>
                 '[]'
               ) AS endorsed_by
        FROM complaints c
+       LEFT JOIN rooms r ON c.room_id = r.room_number
+       LEFT JOIN managers m ON r.floor_number = m.floor_number
        LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
        LEFT JOIN employees emp ON emp.id = e.employee_id
        WHERE c.employee_id = $1
-       GROUP BY c.id
+       GROUP BY c.id, r.floor_number, m.name, m.id
        ORDER BY c.created_at DESC`,
       [employeeId]
     );

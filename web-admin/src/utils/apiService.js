@@ -256,6 +256,13 @@ export const apiService = {
       body: JSON.stringify({ id, name, email }),
     }),
 
+  createFloorManager: (name, email) =>
+    apiFetch(`${API_URL}/managers/floor-manager`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ name, email }),
+    }),
+
   updateManager: (id, name, email) =>
     apiFetch(`${API_URL}/managers/${id}`, {
       method: 'PUT',

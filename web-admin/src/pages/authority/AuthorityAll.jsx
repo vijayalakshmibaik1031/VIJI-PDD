@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useComplaints } from '../../context/ComplaintContext';
 import { EmptyState, StatusBadge, VisibilityBadge, CardMeta } from '../../components/FacilityUI';
-import { CATEGORIES, STATUS, formatRelativeTime } from '../../utils/facility';
+import { CATEGORIES, STATUS, formatRelativeTime, formatFloorName } from '../../utils/facility';
 
 function buildThreadsAll(complaints) {
   const sorted = [...complaints].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -386,7 +386,11 @@ export default function AuthorityAll() {
                   </button>
                 </div>
                 <p className="text-sm text-slate-700 mt-1">{latest.description}</p>
-                <p className="text-[10px] text-slate-400">Raised by: {root.employeeName || root.employeeId}</p>
+                <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded border border-slate-100">
+                  <span>👤 Raised by: <strong className="text-slate-700">{root.employeeName || root.employeeId}</strong></span>
+                  <span>🏢 Floor: <strong className="text-indigo-700">{formatFloorName(root.floor_number || root.floorNumber)}</strong></span>
+                  <span>👔 Floor Manager: <strong className="text-slate-700">{root.floor_manager_name || root.floorManagerName || 'N/A'}</strong></span>
+                </div>
 
                 {isExpanded && (
                   <WorkflowHistory thread={tc} formatRelativeTime={formatRelativeTime} />

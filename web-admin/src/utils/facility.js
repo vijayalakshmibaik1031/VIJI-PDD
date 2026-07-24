@@ -48,3 +48,14 @@ export function writeJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+export function formatFloorName(floorNum) {
+  if (floorNum === undefined || floorNum === null || floorNum === '') return 'N/A';
+  const num = parseInt(floorNum, 10);
+  if (isNaN(num)) return `Floor ${floorNum}`;
+  if (num === 0) return 'Ground Floor';
+  if (num === 1) return '1st Floor';
+  if (num === 2) return '2nd Floor';
+  if (num === 3) return '3rd Floor';
+  return `${num}th Floor`;
+}
+

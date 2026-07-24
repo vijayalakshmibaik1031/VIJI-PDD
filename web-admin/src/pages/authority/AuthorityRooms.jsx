@@ -1,50 +1,101 @@
 import { useState, useEffect } from 'react';
 import { useComplaints } from '../../context/ComplaintContext';
 import { useToast } from '../../context/ToastContext';
+import { apiService } from '../../utils/apiService';
+
+export const formatFloorName = (floorNum) => {
+  if (floorNum === undefined || floorNum === null || floorNum === '') return 'N/A';
+  const num = parseInt(floorNum, 10);
+  if (isNaN(num)) return `Floor ${floorNum}`;
+  if (num === 0) return 'Ground Floor';
+  if (num === 1) return '1st Floor';
+  if (num === 2) return '2nd Floor';
+  if (num === 3) return '3rd Floor';
+  return `${num}th Floor`;
+};
 
 export default function AuthorityRooms() {
   const { rooms, createRoom, updateRoom, deleteRoom } = useComplaints();
   const { showToast } = useToast();
 
   const [newRoomNumber, setNewRoomNumber] = useState('');
-  const [selectedFloor, setSelectedFloor] = useState('1');
+  const [selectedFloor, setSelectedFloor] = useState('0');
   const [customFloors, setCustomFloors] = useState([]);
   const [showAddFloorInput, setShowAddFloorInput] = useState(false);
-  const [newFloorName, setNewFloorName] = useState('');
+
+  const [managers, setManagers] = useState([]);
+  const [mgrName, setMgrName] = useState('');
+  const [mgrEmail, setMgrEmail] = useState('');
+  const [creatingFloorManager, setCreatingFloorManager] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
   const [editingNumber, setEditingNumber] = useState('');
-  const [editingFloor, setEditingFloor] = useState('1');
+  const [editingFloor, setEditingFloor] = useState('0');
   const [deletingId, setDeletingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const fetchManagersList = async () => {
+    try {
+      const data = await apiService.getManagers();
+      setManagers(data);
+    } catch (err) {
+      console.error('Failed to load managers', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchManagersList();
+  }, []);
+
   // Compute unique floors list
   const allFloors = Array.from(new Set([
-    ...rooms.map(r => r.floor_number || '1'),
+    ...managers.map(m => m.floor_number).filter(f => f !== null && f !== undefined),
+    ...rooms.map(r => r.floor_number || '0'),
     ...customFloors
-  ])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  ])).sort((a, b) => {
+    const numA = parseInt(a, 10);
+    const numB = parseInt(b, 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.localeCompare(b);
+  });
+
+  // Next ascending floor number
+  const nextFloorNum = (() => {
+    const validFloors = allFloors.map(f => parseInt(f, 10)).filter(n => !isNaN(n));
+    if (validFloors.length === 0) return 0;
+    return Math.max(...validFloors) + 1;
+  })();
 
   // Initialize selectedFloor default
   useEffect(() => {
     if (allFloors.length > 0 && !allFloors.includes(selectedFloor)) {
       setSelectedFloor(allFloors[0]);
     }
-  }, [rooms, customFloors]);
+  }, [rooms, managers, customFloors]);
 
-  const handleAddFloor = (e) => {
+  const handleCreateFloorManager = async (e) => {
     e.preventDefault();
-    if (!newFloorName.trim()) return;
-    const normalizedFloor = newFloorName.trim();
-    if (allFloors.includes(normalizedFloor)) {
-      showToast('Floor already exists');
+    if (!mgrName.trim() || !mgrEmail.trim()) return;
+    if (!mgrEmail.trim().toLowerCase().endsWith('@xyzcompany.com')) {
+      showToast('Email must end with @xyzcompany.com');
       return;
     }
-    setCustomFloors(prev => [...prev, normalizedFloor]);
-    setSelectedFloor(normalizedFloor);
-    setNewFloorName('');
-    setShowAddFloorInput(false);
-    showToast(`Floor ${normalizedFloor} added to choices`);
+
+    setCreatingFloorManager(true);
+    try {
+      const res = await apiService.createFloorManager(mgrName.trim(), mgrEmail.trim().toLowerCase());
+      showToast(`Floor ${formatFloorName(res.floorNumber)} created! Assigned Manager ID: ${res.managerId}`);
+      await fetchManagersList();
+      setSelectedFloor(res.floorNumber);
+      setMgrName('');
+      setMgrEmail('');
+      setShowAddFloorInput(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to create floor manager');
+    } finally {
+      setCreatingFloorManager(false);
+    }
   };
 
   const handleAddRoom = async (e) => {
@@ -65,7 +116,7 @@ export default function AuthorityRooms() {
     setSubmitting(true);
     try {
       await createRoom(normalized, selectedFloor);
-      showToast(`Room ${normalized} added to Floor ${selectedFloor}`);
+      showToast(`Room ${normalized} added to ${formatFloorName(selectedFloor)}`);
       setNewRoomNumber('');
     } catch (err) {
       showToast(err.message || 'Failed to add room');
@@ -77,7 +128,7 @@ export default function AuthorityRooms() {
   const handleStartEdit = (room) => {
     setEditingId(room.id);
     setEditingNumber(room.room_number);
-    setEditingFloor(room.floor_number || '1');
+    setEditingFloor(room.floor_number || '0');
   };
 
   const handleSaveEdit = async (id) => {
@@ -116,16 +167,17 @@ export default function AuthorityRooms() {
 
   const filteredRooms = rooms.filter((r) =>
     r.room_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (r.floor_number || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (r.floor_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    formatFloorName(r.floor_number).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Overview & Add Form Header */}
       <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Manage Room Inventory</h2>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Manage Room & Floor Inventory</h2>
         <p className="text-sm text-slate-500 mb-6">
-          Add, rename, or remove room numbers dynamically grouped by floor. Updated rooms will instantly take effect across the employee submission dashboard.
+          Add floor managers and assign rooms per floor. Each floor has a dedicated Floor Manager with auto-generated credentials.
         </p>
 
         <div className="flex flex-col gap-4 mb-6">
@@ -137,26 +189,31 @@ export default function AuthorityRooms() {
               </label>
               <div className="flex gap-2">
                 <select
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-800 font-medium"
                   value={selectedFloor}
                   onChange={(e) => setSelectedFloor(e.target.value)}
                   disabled={submitting}
                 >
                   {allFloors.length === 0 ? (
-                    <option value="1">Floor 1</option>
+                    <option value="0">Ground Floor (No Floors Created Yet)</option>
                   ) : (
-                    allFloors.map(f => (
-                      <option key={f} value={f}>Floor {f}</option>
-                    ))
+                    allFloors.map(f => {
+                      const mgr = managers.find(m => String(m.floor_number) === String(f));
+                      return (
+                        <option key={f} value={f}>
+                          {formatFloorName(f)} {mgr ? `(${mgr.name})` : ''}
+                        </option>
+                      );
+                    })
                   )}
                 </select>
                 <button
                   type="button"
                   onClick={() => setShowAddFloorInput(!showAddFloorInput)}
-                  className="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition"
-                  title="Add new floor"
+                  className="rounded-lg border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 text-sm font-bold text-indigo-700 shadow-sm transition flex items-center gap-1"
+                  title="Add next floor in ascending order"
                 >
-                  ➕
+                  ➕ Add Floor
                 </button>
               </div>
             </div>
@@ -187,37 +244,77 @@ export default function AuthorityRooms() {
             </div>
           </div>
 
-          {/* Add Floor Input Popup */}
+          {/* Add Floor & Floor Manager Form */}
           {showAddFloorInput && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex flex-col gap-2 transition-all">
-              <span className="text-xs font-semibold text-slate-600">Create New Floor</span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800"
-                  placeholder="Floor number/name (e.g. 6, G, B)"
-                  value={newFloorName}
-                  onChange={(e) => setNewFloorName(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleAddFloor}
-                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 text-xs font-semibold text-white transition"
-                >
-                  Create
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddFloorInput(false);
-                    setNewFloorName('');
-                  }}
-                  className="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition"
-                >
-                  Cancel
-                </button>
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-5 flex flex-col gap-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                <div>
+                  <h4 className="text-sm font-bold text-indigo-950">
+                    Create Next Floor: <span className="text-indigo-600 font-extrabold">{formatFloorName(nextFloorNum)}</span>
+                  </h4>
+                  <p className="text-xs text-indigo-700">Assign a dedicated Floor Manager for this floor.</p>
+                </div>
+                <span className="text-xs font-mono bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full">
+                  Floor {nextFloorNum}
+                </span>
               </div>
+
+              <form onSubmit={handleCreateFloorManager} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Floor Manager Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      placeholder="e.g. Robert Fox"
+                      value={mgrName}
+                      onChange={(e) => setMgrName(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Floor Manager Email (@xyzcompany.com) *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                      placeholder="e.g. robert@xyzcompany.com"
+                      value={mgrEmail}
+                      onChange={(e) => setMgrEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="text-xs text-slate-500 bg-white/70 p-2.5 rounded-lg border border-indigo-100">
+                  ℹ️ Manager ID will be auto-generated starting with <code className="font-bold text-indigo-700">man[8 digits]</code>. Default password is <code className="font-bold text-indigo-700">Welcome123$</code>.
+                </div>
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddFloorInput(false);
+                      setMgrName('');
+                      setMgrEmail('');
+                    }}
+                    className="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-medium text-slate-700 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingFloorManager || !mgrName.trim() || !mgrEmail.trim()}
+                    className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2 text-xs font-bold text-white transition disabled:opacity-50"
+                  >
+                    {creatingFloorManager ? 'Generating...' : `Create ${formatFloorName(nextFloorNum)} & Manager`}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>
@@ -270,7 +367,7 @@ export default function AuthorityRooms() {
                           onChange={(e) => setEditingFloor(e.target.value)}
                         >
                           {allFloors.map(f => (
-                            <option key={f} value={f}>Floor {f}</option>
+                            <option key={f} value={f}>{formatFloorName(f)}</option>
                           ))}
                         </select>
                       </div>
@@ -279,8 +376,8 @@ export default function AuthorityRooms() {
                         <span className="font-semibold text-slate-800 text-base">
                           Room {room.room_number}
                         </span>
-                        <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
-                          Floor {room.floor_number || '1'}
+                        <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full font-bold">
+                          {formatFloorName(room.floor_number)}
                         </span>
                         <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
                           ID: {room.id}

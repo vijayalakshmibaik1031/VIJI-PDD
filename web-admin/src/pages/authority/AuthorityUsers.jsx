@@ -146,12 +146,6 @@ export default function AuthorityUsers() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => openAddModal('manager')}
-            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition duration-200"
-          >
-            + New Manager
-          </button>
-          <button
             onClick={() => openAddModal('employee')}
             className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition duration-200"
           >

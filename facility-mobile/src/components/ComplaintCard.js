@@ -15,6 +15,17 @@ export function formatRelativeTime(isoString) {
   return `${day}d ago`;
 }
 
+function formatFloorName(floorNum) {
+  if (floorNum === undefined || floorNum === null || floorNum === '') return 'N/A';
+  const num = parseInt(floorNum, 10);
+  if (isNaN(num)) return `Floor ${floorNum}`;
+  if (num === 0) return 'Ground Floor';
+  if (num === 1) return '1st Floor';
+  if (num === 2) return '2nd Floor';
+  if (num === 3) return '3rd Floor';
+  return `${num}th Floor`;
+}
+
 export const ComplaintCard = ({
   complaint,
   onApprove,
@@ -82,7 +93,9 @@ export const ComplaintCard = ({
 
       <View style={styles.metaGrid}>
         <Text style={styles.metaText}>📍 Room: <Text style={styles.metaVal}>{complaint.room_id || complaint.roomNo || 'N/A'}</Text></Text>
+        <Text style={styles.metaText}>🏢 Floor: <Text style={styles.metaVal}>{formatFloorName(complaint.floor_number)}</Text></Text>
         <Text style={styles.metaText}>👤 Raised by: <Text style={styles.metaVal}>{complaint.employee_name || complaint.employeeId || 'Employee'}</Text></Text>
+        <Text style={styles.metaText}>👔 Manager: <Text style={styles.metaVal}>{complaint.floor_manager_name || 'N/A'}</Text></Text>
       </View>
 
       {/* Rejection Details */}
