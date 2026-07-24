@@ -8,9 +8,9 @@ export const ManagerEmployeesScreen = () => {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEmp, setEditingEmp] = useState(null);
-  const [empId, setEmpId] = useState('');
   const [empName, setEmpName] = useState('');
   const [empEmail, setEmpEmail] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -19,7 +19,6 @@ export const ManagerEmployeesScreen = () => {
 
   const handleOpenAdd = () => {
     setEditingEmp(null);
-    setEmpId('');
     setEmpName('');
     setEmpEmail('');
     setModalVisible(true);
@@ -27,15 +26,14 @@ export const ManagerEmployeesScreen = () => {
 
   const handleOpenEdit = (emp) => {
     setEditingEmp(emp);
-    setEmpId(emp.id);
     setEmpName(emp.name);
     setEmpEmail(emp.email || '');
     setModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!empId.trim() || !empName.trim() || !empEmail.trim()) {
-      Alert.alert('Validation Error', 'Please fill in Employee ID, Name, and Corporate Email');
+    if (!empName.trim() || !empEmail.trim()) {
+      Alert.alert('Validation Error', 'Please enter Name and Corporate Email');
       return;
     }
     if (!empEmail.trim().toLowerCase().endsWith('@xyzcompany.com')) {
@@ -46,11 +44,11 @@ export const ManagerEmployeesScreen = () => {
     setSubmitting(true);
     try {
       if (editingEmp) {
-        await updateEmployee(empId.trim(), empName.trim(), empEmail.trim().toLowerCase());
+        await updateEmployee(editingEmp.id, empName.trim(), empEmail.trim().toLowerCase());
         Alert.alert('Success', 'Employee account updated successfully.');
       } else {
-        await createEmployee(empId.trim(), empName.trim(), empEmail.trim().toLowerCase());
-        Alert.alert('Success', 'Employee created with default password Welcome123$');
+        const res = await createEmployee(empName.trim(), empEmail.trim().toLowerCase());
+        Alert.alert('Success', `Employee created! Assigned ID: ${res.employeeId || res.id} (Default password: Welcome123$)`);
       }
       setModalVisible(false);
     } catch (err) {
@@ -78,11 +76,25 @@ export const ManagerEmployeesScreen = () => {
     ]);
   };
 
+  const filteredEmployees = employees.filter(
+    (emp) =>
+      String(emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(emp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(emp.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <View style={styles.flex}>
       <CustomHeader title="Employee Roster Management" subtitle="Create and manage organization employee accounts" />
       
       <View style={styles.topBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="🔍 Search employees by ID, Name, or Email..."
+          placeholderTextColor="#64748B"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
         <TouchableOpacity style={styles.addBtn} onPress={handleOpenAdd}>
           <Text style={styles.addBtnText}>+ Add New Employee Account</Text>
         </TouchableOpacity>
@@ -90,7 +102,7 @@ export const ManagerEmployeesScreen = () => {
 
       <View style={styles.content}>
         <FlatList
-          data={employees}
+          data={filteredEmployees}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <View style={styles.empCard}>
@@ -112,8 +124,10 @@ export const ManagerEmployeesScreen = () => {
           refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchEmployees} tintColor="#6366F1" />}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No Employee Accounts</Text>
-              <Text style={styles.emptySub}>No employees found in organization roster.</Text>
+              <Text style={styles.emptyTitle}>No Employees Found</Text>
+              <Text style={styles.emptySub}>
+                {searchQuery ? 'No employees match your search query.' : 'No employees created yet.'}
+              </Text>
             </View>
           }
         />
@@ -123,25 +137,15 @@ export const ManagerEmployeesScreen = () => {
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingEmp ? '✏️ Edit Employee Account' : '➕ Add Employee Account'}</Text>
+            <Text style={styles.modalTitle}>{editingEmp ? '✏️ Edit Employee Account' : '➕ Add New Employee'}</Text>
             <Text style={styles.modalSub}>
-              {editingEmp ? 'Update employee profile details:' : 'Default password will be Welcome123$:'}
+              {editingEmp ? `Updating details for ID: ${editingEmp.id}` : 'Employee ID will be auto-generated starting with emp[8 digits]:'}
             </Text>
-
-            <Text style={styles.label}>Employee ID *</Text>
-            <TextInput
-              style={[styles.input, editingEmp && styles.disabledInput]}
-              placeholder="e.g. emp002"
-              placeholderTextColor="#64748B"
-              value={empId}
-              onChangeText={setEmpId}
-              editable={!editingEmp}
-            />
 
             <Text style={styles.label}>Full Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder="e.g. Jane Smith"
               placeholderTextColor="#64748B"
               value={empName}
               onChangeText={setEmpName}
@@ -150,19 +154,27 @@ export const ManagerEmployeesScreen = () => {
             <Text style={styles.label}>Corporate Email (@xyzcompany.com) *</Text>
             <TextInput
               style={styles.input}
-              placeholder="employee@xyzcompany.com"
+              placeholder="jane@xyzcompany.com"
               placeholderTextColor="#64748B"
               value={empEmail}
               onChangeText={setEmpEmail}
               autoCapitalize="none"
             />
 
+            {!editingEmp && (
+              <View style={styles.infoNotice}>
+                <Text style={styles.infoNoticeText}>
+                  ℹ️ Employee ID will be auto-generated (e.g. emp48392015). Default password is <Text style={styles.codeText}>Welcome123$</Text>.
+                </Text>
+              </View>
+            )}
+
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={submitting}>
-                <Text style={styles.saveText}>{submitting ? 'Saving...' : 'Save Employee'}</Text>
+                <Text style={styles.saveText}>{submitting ? 'Saving...' : 'Save Account'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -174,7 +186,15 @@ export const ManagerEmployeesScreen = () => {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#0F172A' },
-  topBar: { paddingHorizontal: 16, paddingTop: 12 },
+  topBar: { paddingHorizontal: 16, paddingTop: 12, gap: 10, marginBottom: 10 },
+  searchInput: {
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 12,
+    color: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
   addBtn: {
     backgroundColor: '#4F46E5',
     paddingVertical: 12,
@@ -232,6 +252,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   disabledInput: { color: '#64748B' },
+  infoNotice: {
+    backgroundColor: '#0F172A',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 12,
+  },
+  infoNoticeText: { color: '#CBD5E1', fontSize: 11 },
+  codeText: { color: '#818CF8', fontWeight: '700' },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
   cancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#334155' },
   cancelText: { color: '#94A3B8', fontWeight: '700' },

@@ -323,11 +323,11 @@ export const ComplaintProvider = ({ children }) => {
 
   // ── User / Account CRUD ──────────────────────────────────────────────────
 
-  const createEmployee = async (id, name, email) => {
+  const createEmployee = async (name, email, id) => {
     try {
       const data = await apiCall('/employees', {
         method: 'POST',
-        body: JSON.stringify({ id, name, email }),
+        body: JSON.stringify({ name, email, ...(id ? { id } : {}) }),
       }, token);
       await fetchEmployees();
       return data;
@@ -366,6 +366,19 @@ export const ComplaintProvider = ({ children }) => {
       const data = await apiCall('/managers', {
         method: 'POST',
         body: JSON.stringify({ id, name, email }),
+      }, token);
+      await fetchManagers();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const createFloorManager = async (name, email) => {
+    try {
+      const data = await apiCall('/managers/floor-manager', {
+        method: 'POST',
+        body: JSON.stringify({ name, email }),
       }, token);
       await fetchManagers();
       return data;
@@ -461,6 +474,7 @@ export const ComplaintProvider = ({ children }) => {
         updateEmployee,
         deleteEmployee,
         createManager,
+        createFloorManager,
         updateManager,
         deleteManager,
         resetFirstPassword,
