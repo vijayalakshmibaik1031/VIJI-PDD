@@ -1,3 +1,8 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { CustomHeader } from '../../components/CustomHeader';
+import { useComplaints } from '../../context/ComplaintContext';
+
 function formatFloorName(floorNum) {
   if (floorNum === undefined || floorNum === null || floorNum === '') return 'N/A';
   const num = parseInt(floorNum, 10);
