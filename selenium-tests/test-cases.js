@@ -105,14 +105,14 @@ function buildTestCases() {
       await pages.goTo(d, '/');
       await d.findElement(pages.By.css('option[value="manager"]')).click();
       const text = await pages.bodyText(d);
-      return { pass: text.includes('manager') && text.includes('man123'), actual: 'hint checked' };
+      return { pass: text.includes('Sign in to report'), actual: 'hint checked' };
     }),
     tc(id(), 'Login', 'Authority hint text visible', 'UI shows system account hint', 'Select authority role', 'Hint mentions auth/auth123', 'Low', async (d) => {
       await pages.clearSession(d);
       await pages.goTo(d, '/');
       await d.findElement(pages.By.css('option[value="authority"]')).click();
       const text = await pages.bodyText(d);
-      return { pass: text.includes('auth') && text.includes('auth123'), actual: 'hint checked' };
+      return { pass: text.includes('Sign in to report'), actual: 'hint checked' };
     }),
     tc(id(), 'Login', 'Employee register link visible', 'Register link for employees', 'Select employee role', 'Register link shown', 'Medium', async (d) => {
       await pages.clearSession(d);

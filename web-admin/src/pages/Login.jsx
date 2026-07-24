@@ -84,13 +84,7 @@ export default function Login() {
         </div>
 
         <div className="mb-6 text-xs text-slate-300 bg-white/5 border border-white/5 rounded-xl p-4 leading-relaxed">
-          {role === 'manager' ? (
-            <span>System account: ID <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">manager</code>, password <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">man123</code></span>
-          ) : role === 'authority' ? (
-            <span>System account: ID <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">auth</code>, password <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">auth123</code></span>
-          ) : (
-            <span>Sign in to report and track facility issues.</span>
-          )}
+          <span>Sign in to report and track facility issues.</span>
         </div>
 
         <div className="space-y-4">

@@ -53,17 +53,7 @@ export const LoginScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.hintBox}>
-          {role === 'manager' ? (
-            <Text style={styles.hintText}>
-              System account: ID <Text style={styles.codeText}>manager</Text> | Pass <Text style={styles.codeText}>man123</Text>
-            </Text>
-          ) : role === 'authority' ? (
-            <Text style={styles.hintText}>
-              System account: ID <Text style={styles.codeText}>auth</Text> | Pass <Text style={styles.codeText}>auth123</Text>
-            </Text>
-          ) : (
-            <Text style={styles.hintText}>Sign in to report and track facility issues.</Text>
-          )}
+          <Text style={styles.hintText}>Sign in to report and track facility issues.</Text>
         </View>
 
         {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
@@ -72,7 +62,7 @@ export const LoginScreen = ({ navigation }) => {
           <Text style={styles.inputLabel}>User ID</Text>
           <TextInput
             style={styles.input}
-            placeholder={role === 'manager' ? 'manager' : role === 'authority' ? 'auth' : 'Enter User ID'}
+            placeholder="Enter User ID"
             placeholderTextColor="#64748B"
             value={userId}
             onChangeText={setUserId}

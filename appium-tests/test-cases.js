@@ -53,14 +53,14 @@ function buildTestCases() {
       await pages.navigateTo('/');
       await pages.selectRoleOption('manager');
       const text = await pages.bodyText();
-      return { pass: text.includes('manager') && text.includes('man123'), actual: 'hint checked' };
+      return { pass: text.includes('Sign in to report'), actual: 'hint checked' };
     }),
     tc(id(), 'Functional', 'Authority hint text visible', 'UI shows system account hint', 'Select authority role', 'Hint mentions auth/auth123', 'Low', async () => {
       await pages.clearSession();
       await pages.navigateTo('/');
       await pages.selectRoleOption('authority');
       const text = await pages.bodyText();
-      return { pass: text.includes('auth') && text.includes('auth123'), actual: 'hint checked' };
+      return { pass: text.includes('Sign in to report'), actual: 'hint checked' };
     }),
     tc(id(), 'Functional', 'Employee register link visible', 'Register link for employees', 'Select employee role', 'Register link shown', 'Medium', async () => {
       await pages.clearSession();
