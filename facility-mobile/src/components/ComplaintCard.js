@@ -43,7 +43,10 @@ export const ComplaintCard = ({
     }
   };
 
-  const isEndorsed = Array.isArray(complaint.endorsed_by) && currentUserId && complaint.endorsed_by.includes(currentUserId);
+  const isEndorsed = Array.isArray(complaint.endorsed_by) && currentUserId && complaint.endorsed_by.some(e => {
+    if (typeof e === 'object' && e !== null) return String(e.employeeId) === String(currentUserId);
+    return String(e) === String(currentUserId);
+  });
   const endorsementCount = Array.isArray(complaint.endorsed_by) ? complaint.endorsed_by.length : (complaint.upvotes || 0);
 
   return (
@@ -116,6 +119,44 @@ export const ComplaintCard = ({
           </Text>
         </View>
       )}
+
+      {/* Feedback details */}
+      {(complaint.feedbackText || complaint.feedback_text) ? (
+        <View style={styles.feedbackShowBox}>
+          <Text style={styles.feedbackShowTitle}>💬 Employee Feedback:</Text>
+          <Text style={styles.feedbackShowText}>
+            {complaint.feedbackText || complaint.feedback_text} {complaint.feedbackSubmittedAt || complaint.feedback_submitted_at ? `(${formatRelativeTime(complaint.feedbackSubmittedAt || complaint.feedback_submitted_at)})` : ''}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Raised to public timestamp */}
+      {complaint.visibility === 'public' && (complaint.raisedToPublicAt || complaint.raised_to_public_at) ? (
+        <View style={styles.raisedPublicBox}>
+          <Text style={styles.raisedPublicText}>
+            📢 Publicly Visible since: {formatRelativeTime(complaint.raisedToPublicAt || complaint.raised_to_public_at)}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Endorsement list details */}
+      {Array.isArray(complaint.endorsed_by) && complaint.endorsed_by.length > 0 ? (
+        <View style={styles.endorsementBox}>
+          <Text style={styles.endorsementTitle}>👥 Endorsements & Timestamps:</Text>
+          <View style={styles.endorsementContainer}>
+            {complaint.endorsed_by.map((e, index) => {
+              const name = typeof e === 'object' ? e.employeeName : e;
+              const id = typeof e === 'object' ? e.employeeId : e;
+              const timeStr = typeof e === 'object' && e.endorsedAt ? ` (${formatRelativeTime(e.endorsedAt)})` : '';
+              return (
+                <View key={index} style={styles.endorsementPill}>
+                  <Text style={styles.endorsementText}>{name || id}{timeStr}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.cardFooter}>
         <Text style={styles.dateText}>
@@ -480,5 +521,61 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+  feedbackShowBox: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+  },
+  feedbackShowTitle: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  feedbackShowText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+  },
+  raisedPublicBox: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+  },
+  raisedPublicText: {
+    color: '#A5B4FC',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  endorsementBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 8,
+  },
+  endorsementTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  endorsementContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  endorsementPill: {
+    backgroundColor: '#1E293B',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
 });

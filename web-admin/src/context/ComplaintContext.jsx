@@ -66,6 +66,9 @@ export function ComplaintProvider({ children }) {
     resubmittedAt: complaint.resubmitted_at || complaint.resubmittedAt,
     escalatedAt: complaint.escalated_at || complaint.escalatedAt,
     updatedAt: complaint.updated_at || complaint.updatedAt,
+    feedbackText: complaint.feedback_text || complaint.feedbackText || '',
+    feedbackSubmittedAt: complaint.feedback_submitted_at || complaint.feedbackSubmittedAt,
+    raisedToPublicAt: complaint.raised_to_public_at || complaint.raisedToPublicAt,
     rejectionHistory:
       typeof complaint.rejection_history === 'string'
         ? JSON.parse(complaint.rejection_history || '[]')

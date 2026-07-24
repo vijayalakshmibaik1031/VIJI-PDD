@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { StatusBadge } from './StatusBadge';
+import { formatRelativeTime } from './ComplaintCard';
 
 export const MergedGroupCard = ({
   group,
@@ -26,7 +27,10 @@ export const MergedGroupCard = ({
     : (group.constituent_complaint_ids || []);
 
   const endorsedBy = Array.isArray(group.endorsed_by) ? group.endorsed_by : [];
-  const isEndorsed = currentUserId && endorsedBy.includes(currentUserId);
+  const isEndorsed = currentUserId && endorsedBy.some(e => {
+    if (typeof e === 'object' && e !== null) return String(e.employeeId) === String(currentUserId);
+    return String(e) === String(currentUserId);
+  });
 
   return (
     <View style={styles.card}>
@@ -49,6 +53,25 @@ export const MergedGroupCard = ({
         <View style={styles.escalationBox}>
           <Text style={styles.escalationTitle}>🚨 Escalation Note:</Text>
           <Text style={styles.escalationText}>{group.escalation_note}</Text>
+        </View>
+      ) : null}
+
+      {/* Endorsement list details */}
+      {endorsedBy.length > 0 ? (
+        <View style={styles.endorsementBox}>
+          <Text style={styles.endorsementTitle}>👥 Endorsements & Timestamps:</Text>
+          <View style={styles.endorsementContainer}>
+            {endorsedBy.map((e, index) => {
+              const name = typeof e === 'object' ? e.employeeName : e;
+              const id = typeof e === 'object' ? e.employeeId : e;
+              const timeStr = typeof e === 'object' && e.endorsedAt ? ` (${formatRelativeTime(e.endorsedAt)})` : '';
+              return (
+                <View key={index} style={styles.endorsementPill}>
+                  <Text style={styles.endorsementText}>{name || id}{timeStr}</Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
       ) : null}
 
@@ -227,5 +250,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  endorsementBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  endorsementTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  endorsementContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  endorsementPill: {
+    backgroundColor: '#1E293B',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  endorsementText: {
+    color: '#E2E8F0',
+    fontSize: 10,
   },
 });

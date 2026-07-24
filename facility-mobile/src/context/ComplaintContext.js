@@ -173,6 +173,19 @@ export const ComplaintProvider = ({ children }) => {
     }
   };
 
+  const submitFeedback = async (id, feedbackText) => {
+    try {
+      const data = await apiCall(`/complaints/${id}/feedback`, {
+        method: 'PATCH',
+        body: JSON.stringify({ feedbackText }),
+      }, token);
+      await fetchComplaints();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const endorseComplaint = async (id, employeeId) => {
     try {
       const data = await apiCall(`/complaints/${id}/endorse`, {
@@ -434,6 +447,7 @@ export const ComplaintProvider = ({ children }) => {
         escalateComplaint,
         raiseToPublic,
         endorseComplaint,
+        submitFeedback,
         recomplain,
         createMergedGroup,
         endorseMergedGroup,

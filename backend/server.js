@@ -268,6 +268,9 @@ async function initializeDatabase() {
         escalated_at TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        feedback_text TEXT,
+        feedback_submitted_at TIMESTAMP,
+        raised_to_public_at TIMESTAMP,
         FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
       )
     `);
@@ -278,6 +281,9 @@ async function initializeDatabase() {
     await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS resubmitted_at TIMESTAMP`).catch(() => {});
     await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMP`).catch(() => {});
     await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS feedback_text TEXT`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS feedback_submitted_at TIMESTAMP`).catch(() => {});
+    await pool.query(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS raised_to_public_at TIMESTAMP`).catch(() => {});
     console.log("✓ complaints table ready");
 
     // Create merged_groups table
@@ -1310,9 +1316,20 @@ app.post("/api/complaints", requireAuth, async (req, res) => {
 app.get("/api/complaints", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+      `SELECT c.*, 
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'employeeId', e.employee_id,
+                    'employeeName', emp.name,
+                    'endorsedAt', e.endorsed_at
+                  ) ORDER BY e.endorsed_at
+                ) FILTER (WHERE e.employee_id IS NOT NULL), 
+                '[]'
+              ) AS endorsed_by
        FROM complaints c
        LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       LEFT JOIN employees emp ON emp.id = e.employee_id
        GROUP BY c.id
        ORDER BY c.created_at DESC`
     );
@@ -1327,9 +1344,20 @@ app.get("/api/complaints/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+      `SELECT c.*, 
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'employeeId', e.employee_id,
+                    'employeeName', emp.name,
+                    'endorsedAt', e.endorsed_at
+                  ) ORDER BY e.endorsed_at
+                ) FILTER (WHERE e.employee_id IS NOT NULL), 
+                '[]'
+              ) AS endorsed_by
        FROM complaints c
        LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       LEFT JOIN employees emp ON emp.id = e.employee_id
        WHERE c.id = $1
        GROUP BY c.id`,
       [id]
@@ -1350,9 +1378,20 @@ app.get("/api/complaints/employee/:employeeId", requireAuth, async (req, res) =>
   try {
     const { employeeId } = req.params;
     const result = await pool.query(
-      `SELECT c.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+      `SELECT c.*, 
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'employeeId', e.employee_id,
+                    'employeeName', emp.name,
+                    'endorsedAt', e.endorsed_at
+                  ) ORDER BY e.endorsed_at
+                ) FILTER (WHERE e.employee_id IS NOT NULL), 
+                '[]'
+              ) AS endorsed_by
        FROM complaints c
        LEFT JOIN complaint_endorsements e ON e.complaint_id = c.id
+       LEFT JOIN employees emp ON emp.id = e.employee_id
        WHERE c.employee_id = $1
        GROUP BY c.id
        ORDER BY c.created_at DESC`,
@@ -1478,12 +1517,38 @@ app.patch("/api/complaints/:id/escalate", requireAuth, async (req, res) => {
   }
 });
 
+// PATCH /api/complaints/:id/feedback (Employees)
+app.patch("/api/complaints/:id/feedback", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { feedbackText } = req.body;
+
+    if (!feedbackText || !feedbackText.trim()) {
+      return res.status(400).json({ error: "Feedback text is required" });
+    }
+
+    const result = await pool.query(
+      "UPDATE complaints SET feedback_text = $1, feedback_submitted_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *",
+      [feedbackText.trim(), id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Complaint not found" });
+    }
+
+    res.json({ message: "Feedback submitted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to submit feedback" });
+  }
+});
+
 // PATCH /api/complaints/:id/raise-to-public (Manager only/Authority)
 app.patch("/api/complaints/:id/raise-to-public", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "UPDATE complaints SET visibility = 'public' WHERE id = $1 RETURNING *",
+      "UPDATE complaints SET visibility = 'public', raised_to_public_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *",
       [id]
     );
 

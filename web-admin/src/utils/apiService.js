@@ -135,6 +135,13 @@ export const apiService = {
       body: JSON.stringify({ reason }),
     }),
 
+  submitFeedback: (id, feedbackText) =>
+    apiFetch(`${API_URL}/complaints/${id}/feedback`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ feedbackText }),
+    }),
+
   // ── Rejection count & re-complain tracking ────────────────────────────────
 
   getRejectionCount: (employeeId, roomId, category) => {

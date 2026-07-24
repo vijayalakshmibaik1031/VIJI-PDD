@@ -9,7 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 export const EmployeePublicScreen = () => {
   const { complaints, mergedGroups, fetchComplaints, fetchMergedGroups, endorseComplaint, endorseMergedGroup, loading } = useComplaints();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('tickets');
+  const [feedType, setFeedType] = useState('ongoing'); // ongoing or completed
+  const [activeTab, setActiveTab] = useState('tickets'); // tickets or groups
 
   useEffect(() => {
     fetchComplaints();
@@ -18,13 +19,22 @@ export const EmployeePublicScreen = () => {
 
   const currentEmpId = user?.id || user?.userId || 'emp001';
 
-  const mergedVisible = mergedGroups.filter(
+  // Ongoing Merged
+  const mergedOngoing = mergedGroups.filter(
     (group) =>
       Array.isArray(group.constituentComplaintIds || group.constituent_complaint_ids) &&
-      (group.status === 'merged_public' || group.status === 'escalated'),
+      (group.status === 'merged_public' || group.status === 'escalated')
   );
 
-  const individualPublicVisible = complaints.filter(
+  // Completed Merged
+  const mergedCompleted = mergedGroups.filter(
+    (group) =>
+      Array.isArray(group.constituentComplaintIds || group.constituent_complaint_ids) &&
+      group.status === 'completed'
+  );
+
+  // Ongoing public tickets
+  const individualOngoing = complaints.filter(
     (c) =>
       c.visibility === 'public' &&
       !c.parentComplaintId &&
@@ -34,6 +44,20 @@ export const EmployeePublicScreen = () => {
       c.status !== 'completed' &&
       c.status !== 'rejected'
   );
+
+  // Completed public tickets
+  const individualCompleted = complaints.filter(
+    (c) =>
+      c.visibility === 'public' &&
+      !c.parentComplaintId &&
+      !c.parent_complaint_id &&
+      !c.mergedIntoId &&
+      !c.merged_into_id &&
+      c.status === 'completed'
+  );
+
+  const mergedVisible = feedType === 'ongoing' ? mergedOngoing : mergedCompleted;
+  const individualPublicVisible = feedType === 'ongoing' ? individualOngoing : individualCompleted;
 
   const handleEndorseComplaint = async (complaintId) => {
     try {
@@ -57,6 +81,26 @@ export const EmployeePublicScreen = () => {
     <View style={styles.flex}>
       <CustomHeader title="Community Public Feed" subtitle="Endorse & support open facility issues" />
       
+      {/* Ongoing / Completed Feed Toggles */}
+      <View style={styles.feedTypeContainer}>
+        <TouchableOpacity
+          style={[styles.feedTypeBtn, feedType === 'ongoing' && styles.feedTypeBtnActive]}
+          onPress={() => setFeedType('ongoing')}
+        >
+          <Text style={[styles.feedTypeText, feedType === 'ongoing' && styles.feedTypeTextActive]}>
+            Ongoing Feed ({mergedOngoing.length + individualOngoing.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.feedTypeBtn, feedType === 'completed' && styles.feedTypeBtnActive]}
+          onPress={() => setFeedType('completed')}
+        >
+          <Text style={[styles.feedTypeText, feedType === 'completed' && styles.feedTypeTextActive]}>
+            Completed Feed ({mergedCompleted.length + individualCompleted.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.tabRow}>
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'tickets' && styles.tabBtnActive]}
@@ -86,7 +130,7 @@ export const EmployeePublicScreen = () => {
               <ComplaintCard
                 complaint={item}
                 currentUserId={currentEmpId}
-                onEndorse={handleEndorseComplaint}
+                onEndorse={feedType === 'ongoing' ? handleEndorseComplaint : null}
               />
             )}
             refreshControl={
@@ -102,7 +146,7 @@ export const EmployeePublicScreen = () => {
             ListEmptyComponent={
               <View style={styles.emptyBox}>
                 <Text style={styles.emptyTitle}>No Public Tickets</Text>
-                <Text style={styles.emptySub}>No individual facility issues have been raised to public visibility yet.</Text>
+                <Text style={styles.emptySub}>No individual facility issues in this feed section.</Text>
               </View>
             }
           />
@@ -114,7 +158,7 @@ export const EmployeePublicScreen = () => {
               <MergedGroupCard
                 group={item}
                 currentUserId={currentEmpId}
-                onEndorse={handleEndorseMergedGroup}
+                onEndorse={feedType === 'ongoing' ? handleEndorseMergedGroup : null}
               />
             )}
             refreshControl={
@@ -130,7 +174,7 @@ export const EmployeePublicScreen = () => {
             ListEmptyComponent={
               <View style={styles.emptyBox}>
                 <Text style={styles.emptyTitle}>No Merged Groups</Text>
-                <Text style={styles.emptySub}>No community merged groups created yet.</Text>
+                <Text style={styles.emptySub}>No community merged groups in this feed section.</Text>
               </View>
             }
           />
@@ -172,4 +216,29 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems: 'center', marginTop: 60, padding: 20 },
   emptyTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: '700' },
   emptySub: { color: '#94A3B8', fontSize: 14, marginTop: 6, textAlign: 'center' },
+  feedTypeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  feedTypeBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: '#0F172A',
+  },
+  feedTypeBtnActive: {
+    backgroundColor: '#4F46E5',
+  },
+  feedTypeText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  feedTypeTextActive: {
+    color: '#FFFFFF',
+  },
 });

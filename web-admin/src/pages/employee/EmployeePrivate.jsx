@@ -21,22 +21,10 @@ function buildThreads(complaints, employeeId) {
     return root;
   }
 
-  const roomCategoryToRoot = {};
   const threads = {};
 
   mine.forEach((c) => {
-    let rootId;
-    if (c.parentComplaintId) {
-      rootId = getRootId(c);
-    } else {
-      const key = `${c.roomId}__${c.category}`;
-      if (roomCategoryToRoot[key]) {
-        rootId = roomCategoryToRoot[key];
-      } else {
-        rootId = c.id;
-        roomCategoryToRoot[key] = c.id;
-      }
-    }
+    const rootId = getRootId(c);
     if (!threads[rootId]) threads[rootId] = [];
     threads[rootId].push(c);
   });
@@ -48,12 +36,54 @@ function buildThreads(complaints, employeeId) {
   });
 }
 
+function FeedbackForm({ complaintId, onSubmitted }) {
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiService.submitFeedback(complaintId, text.trim());
+      onSubmitted?.();
+    } catch (err) {
+      alert(err.message || 'Failed to submit feedback');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 space-y-2 border-t pt-3">
+      <label className="block text-xs font-semibold text-slate-600">Share your feedback (optional):</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          className="flex-1 rounded border px-3 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          placeholder="How was the resolution?"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded bg-indigo-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-indigo-500 transition disabled:opacity-50"
+        >
+          {submitting ? 'Sending...' : 'Submit'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function EmployeePrivate() {
   const { session } = useAuth();
   const { complaints, reload } = useComplaints();
   const [reComplainDraft, setReComplainDraft] = useState(null);
   const [reComplainedIds, setReComplainedIds] = useState({});
   const [expandedThreads, setExpandedThreads] = useState({});
+  const [activeTab, setActiveTab] = useState('ongoing');
 
   const threads = buildThreads(complaints, session?.userId);
   const allRejected = complaints.filter(
@@ -115,11 +145,35 @@ export default function EmployeePrivate() {
     );
   }
 
-  if (!threads.length) return <EmptyState text="No complaints yet." />;
+  const ongoingThreads = threads.filter(tc => !tc.some(c => c.status === 'completed'));
+  const completedThreads = threads.filter(tc => tc.some(c => c.status === 'completed'));
+  const visibleThreads = activeTab === 'ongoing' ? ongoingThreads : completedThreads;
 
   return (
     <div className="space-y-3">
-      {threads.map((tc) => {
+      {/* Sub tabs */}
+      <div className="mb-4 flex border-b">
+        <button
+          className={`mr-4 pb-2 text-sm font-semibold transition-colors duration-200 ${
+            activeTab === 'ongoing' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500 hover:text-slate-800'
+          }`}
+          onClick={() => setActiveTab('ongoing')}
+        >
+          Ongoing Private ({ongoingThreads.length})
+        </button>
+        <button
+          className={`pb-2 text-sm font-semibold transition-colors duration-200 ${
+            activeTab === 'completed' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500 hover:text-slate-800'
+          }`}
+          onClick={() => setActiveTab('completed')}
+        >
+          Completed Private ({completedThreads.length})
+        </button>
+      </div>
+
+      {!visibleThreads.length && <EmptyState text={`No ${activeTab} private complaints.`} />}
+
+      {visibleThreads.map((tc) => {
         const root = tc[0];
         const latest = tc[tc.length - 1];
         const key = root.id;
@@ -229,20 +283,36 @@ export default function EmployeePrivate() {
 
             {/* Completed notice */}
             {isCompleted && (
-              <div className="mt-2 rounded border border-green-900/50 bg-green-950/30 p-2 text-xs text-green-400">
-                <p className="font-medium">
-                  {latest.completionDescription
-                    ? `Note: ${latest.completionDescription}`
-                    : 'Issue resolved'} {latest.completedAt ? `(${formatRelativeTime(latest.completedAt)})` : ''}
-                </p>
-                {latest.completionPhotoUri && (
-                  <img
-                    src={latest.completionPhotoUri}
-                    alt="Completion proof"
-                    className="mt-1 h-28 w-full max-w-xs rounded object-cover border"
-                  />
+              <>
+                <div className="mt-2 rounded border border-green-900/50 bg-green-950/30 p-2 text-xs text-green-400">
+                  <p className="font-medium">
+                    {latest.completionDescription
+                      ? `Note: ${latest.completionDescription}`
+                      : 'Issue resolved'} {latest.completedAt ? `(${formatRelativeTime(latest.completedAt)})` : ''}
+                  </p>
+                  {latest.completionPhotoUri && (
+                    <img
+                      src={latest.completionPhotoUri}
+                      alt="Completion proof"
+                      className="mt-1 h-28 w-full max-w-xs rounded object-cover border"
+                    />
+                  )}
+                </div>
+
+                {latest.feedbackText ? (
+                  <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-xs">
+                    <p className="font-semibold text-slate-800 flex justify-between">
+                      <span>💬 Employee Feedback</span>
+                      <span className="text-slate-400 font-normal">
+                        {latest.feedbackSubmittedAt ? formatRelativeTime(latest.feedbackSubmittedAt) : ''}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-slate-700 font-medium">{latest.feedbackText}</p>
+                  </div>
+                ) : (
+                  <FeedbackForm complaintId={latest.id} onSubmitted={reload} />
                 )}
-              </div>
+              </>
             )}
 
             {/* Expanded history */}
