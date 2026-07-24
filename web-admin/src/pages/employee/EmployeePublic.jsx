@@ -171,28 +171,42 @@ export default function EmployeePublic() {
       group.status === 'completed'
   );
 
+  // Build set of constituent complaint IDs belonging to any merged group
+  const allMergedConstituentIds = useMemo(() => {
+    const ids = new Set();
+    mergedGroups.forEach((group) => {
+      const list = group.constituentComplaintIds || group.constituent_complaint_ids || [];
+      if (Array.isArray(list)) {
+        list.forEach((id) => ids.add(String(id)));
+      }
+    });
+    return ids;
+  }, [mergedGroups]);
+
   // Group complaints into threads
   const threads = useMemo(() => buildThreadsAll(complaints), [complaints]);
 
-  // Filter individual public complaints
+  // Filter individual public complaints (excluding any that are merged into a group)
   const individualOngoing = threads.filter((tc) => {
-    const root = tc[0];
     const latest = tc[tc.length - 1];
     const isCompleted = tc.some(c => c.status === 'completed');
+    const isMerged = tc.some(c => c.mergedIntoId || allMergedConstituentIds.has(String(c.id)));
     return (
       latest.visibility === 'public' &&
       !isCompleted &&
-      latest.status !== 'rejected'
+      latest.status !== 'rejected' &&
+      !isMerged
     );
   });
 
   const individualCompleted = threads.filter((tc) => {
-    const root = tc[0];
     const latest = tc[tc.length - 1];
     const isCompleted = tc.some(c => c.status === 'completed');
+    const isMerged = tc.some(c => c.mergedIntoId || allMergedConstituentIds.has(String(c.id)));
     return (
       latest.visibility === 'public' &&
-      isCompleted
+      isCompleted &&
+      !isMerged
     );
   });
 
@@ -339,7 +353,7 @@ export default function EmployeePublic() {
                   )}
 
                   {activeTab === 'ongoing' && (
-                    <button className="mt-2 rounded border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-3 py-1 text-sm disabled:opacity-50 font-semibold" disabled={already || latest.status !== 'public'} onClick={() => handleEndorseIndividual(latest.id)}>
+                    <button className="mt-2 rounded border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-3 py-1 text-sm disabled:opacity-50 font-semibold" disabled={already} onClick={() => handleEndorseIndividual(latest.id)}>
                       {already ? 'Endorsed ✓' : 'Endorse'}
                     </button>
                   )}

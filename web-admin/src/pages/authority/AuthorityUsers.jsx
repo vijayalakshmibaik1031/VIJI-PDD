@@ -21,6 +21,8 @@ export default function AuthorityUsers() {
   const [email, setEmail] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const fetchUsers = async () => {
     setLoading(true);
     setError('');
@@ -57,8 +59,8 @@ export default function AuthorityUsers() {
         await apiService.createManager(userId.trim(), name.trim(), email.trim().toLowerCase());
         setSuccess('Manager created successfully (default password: Welcome123$)');
       } else {
-        await apiService.createEmployee(userId.trim(), name.trim(), email.trim().toLowerCase());
-        setSuccess('Employee created successfully (default password: Welcome123$)');
+        const res = await apiService.createEmployee(name.trim(), email.trim().toLowerCase());
+        setSuccess(`Employee created successfully! Assigned ID: ${res.employeeId || res.id} (Default password: Welcome123$)`);
       }
       fetchUsers();
       setShowAddModal(false);
@@ -167,28 +169,38 @@ export default function AuthorityUsers() {
         </div>
       )}
 
-      {/* Tabs Selector */}
-      <div className="flex border-b border-slate-850">
-        <button
-          onClick={() => setActiveTab('managers')}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-all ${
-            activeTab === 'managers'
-              ? 'border-indigo-500 text-white font-bold'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          Managers ({managers.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('employees')}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-all ${
-            activeTab === 'employees'
-              ? 'border-violet-500 text-white font-bold'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          Employees ({employees.length})
-        </button>
+      {/* Tabs Selector & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-2">
+        <div className="flex border-b border-transparent">
+          <button
+            onClick={() => setActiveTab('managers')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-all ${
+              activeTab === 'managers'
+                ? 'border-indigo-500 text-white font-bold'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            Managers ({managers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('employees')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-all ${
+              activeTab === 'employees'
+                ? 'border-violet-500 text-white font-bold'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            Employees ({employees.length})
+          </button>
+        </div>
+
+        <input
+          type="text"
+          className="w-full sm:w-80 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-medium"
+          placeholder="🔍 Search by ID, Name, or Email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
       {loading ? (
@@ -210,60 +222,78 @@ export default function AuthorityUsers() {
             </thead>
             <tbody className="divide-y divide-slate-800/80">
               {activeTab === 'managers' ? (
-                managers.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-10 text-slate-500 font-medium">No floor managers created yet. Use "Manage Rooms" to add floors.</td>
-                  </tr>
-                ) : (
-                  managers.map((mgr) => (
-                    <tr key={mgr.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-indigo-400">{mgr.id}</td>
-                      <td className="px-6 py-4 font-semibold text-white">{mgr.name}</td>
-                      <td className="px-6 py-4 text-slate-300">{mgr.email || 'N/A'}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">
-                          🏢 {formatFloorName(mgr.floor_number)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-400 text-xs">
-                        {new Date(mgr.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => openEditModal('manager', mgr)}
-                          className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
-                        >
-                          Edit
-                        </button>
+                (() => {
+                  const filtered = managers.filter((m) =>
+                    m.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (m.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+                  );
+                  return filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="text-center py-10 text-slate-500 font-medium">
+                        {searchQuery ? 'No managers match your search.' : 'No floor managers created yet. Use "Manage Rooms" to add floors.'}
                       </td>
                     </tr>
-                  ))
-                )
+                  ) : (
+                    filtered.map((mgr) => (
+                      <tr key={mgr.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-indigo-400">{mgr.id}</td>
+                        <td className="px-6 py-4 font-semibold text-white">{mgr.name}</td>
+                        <td className="px-6 py-4 text-slate-300">{mgr.email || 'N/A'}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">
+                            🏢 {formatFloorName(mgr.floor_number)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-400 text-xs">
+                          {new Date(mgr.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => openEditModal('manager', mgr)}
+                            className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  );
+                })()
               ) : (
-                employees.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="text-center py-10 text-slate-500 font-medium">No employees found.</td>
-                  </tr>
-                ) : (
-                  employees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-violet-400">{emp.id}</td>
-                      <td className="px-6 py-4 font-semibold text-white">{emp.name}</td>
-                      <td className="px-6 py-4 text-slate-300">{emp.email || 'N/A'}</td>
-                      <td className="px-6 py-4 text-slate-400 text-xs">
-                        {new Date(emp.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => openEditModal('employee', emp)}
-                          className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
-                        >
-                          Edit
-                        </button>
+                (() => {
+                  const filtered = employees.filter((emp) =>
+                    emp.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+                  );
+                  return filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-10 text-slate-500 font-medium">
+                        {searchQuery ? 'No employees match your search.' : 'No employees found.'}
                       </td>
                     </tr>
-                  ))
-                )
+                  ) : (
+                    filtered.map((emp) => (
+                      <tr key={emp.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-violet-400">{emp.id}</td>
+                        <td className="px-6 py-4 font-semibold text-white">{emp.name}</td>
+                        <td className="px-6 py-4 text-slate-300">{emp.email || 'N/A'}</td>
+                        <td className="px-6 py-4 text-slate-400 text-xs">
+                          {new Date(emp.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => openEditModal('employee', emp)}
+                            className="rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-white transition"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  );
+                })()
               )}
             </tbody>
           </table>
@@ -278,23 +308,25 @@ export default function AuthorityUsers() {
               Add New {modalType === 'manager' ? 'Manager' : 'Employee'}
             </h3>
             <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  User ID
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={modalType === 'manager' ? 'e.g. manager2' : 'e.g. emp002'}
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
-                />
-              </div>
+              {modalType === 'manager' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Manager ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. manager2"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Full Name
+                  Full Name *
                 </label>
                 <input
                   type="text"
@@ -302,13 +334,13 @@ export default function AuthorityUsers() {
                   placeholder="e.g. John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Email address (@xyzcompany.com)
+                  Email address (@xyzcompany.com) *
                 </label>
                 <input
                   type="email"
@@ -316,12 +348,15 @@ export default function AuthorityUsers() {
                   placeholder="john@xyzcompany.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white"
                 />
               </div>
 
-              <div className="text-xs text-slate-500 italic bg-white/5 border border-slate-800 rounded-xl p-3">
-                Note: The login password will default to <strong className="text-indigo-400">Welcome123$</strong>. The user will be requested to reset it on their first login.
+              <div className="text-xs text-slate-300 bg-white/5 border border-slate-800 rounded-xl p-3 space-y-1">
+                {modalType === 'employee' ? (
+                  <p>ℹ️ Employee ID will be auto-generated starting with <code className="font-mono font-bold text-violet-400">emp[8 digits]</code> (e.g. emp48392015).</p>
+                ) : null}
+                <p>Default password is <code className="font-mono font-bold text-indigo-400">Welcome123$</code>. The user will reset it on first login.</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

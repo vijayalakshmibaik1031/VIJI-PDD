@@ -45,8 +45,8 @@ export default function ManagerEmployees() {
     }
 
     try {
-      await apiService.createEmployee(userId.trim(), name.trim(), email.trim().toLowerCase());
-      setSuccess('Employee created successfully (default password: Welcome123$)');
+      const res = await apiService.createEmployee(name.trim(), email.trim().toLowerCase());
+      setSuccess(`Employee created successfully! Assigned ID: ${res.employeeId || res.id} (Default password: Welcome123$)`);
       fetchEmployees();
       setShowAddModal(false);
       resetForm();
@@ -182,21 +182,7 @@ export default function ManagerEmployees() {
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Employee ID
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. emp002"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Full Name
+                  Full Name *
                 </label>
                 <input
                   type="text"
@@ -204,13 +190,13 @@ export default function ManagerEmployees() {
                   placeholder="e.g. John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Email address (@xyzcompany.com)
+                  Email address (@xyzcompany.com) *
                 </label>
                 <input
                   type="email"
@@ -218,12 +204,13 @@ export default function ManagerEmployees() {
                   placeholder="john@xyzcompany.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white"
                 />
               </div>
 
-              <div className="text-xs text-slate-500 italic bg-white/5 border border-slate-800 rounded-xl p-3">
-                Note: The login password will default to <strong className="text-indigo-400">Welcome123$</strong>. The user will be requested to reset it on their first login.
+              <div className="text-xs text-slate-300 bg-white/5 border border-slate-800 rounded-xl p-3 space-y-1">
+                <p>ℹ️ Employee ID will be auto-generated starting with <code className="font-mono font-bold text-violet-400">emp[8 digits]</code> (e.g. emp48392015).</p>
+                <p>Default password is <code className="font-mono font-bold text-indigo-400">Welcome123$</code>. The user will reset it on first login.</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

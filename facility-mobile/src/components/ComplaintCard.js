@@ -54,11 +54,16 @@ export const ComplaintCard = ({
     }
   };
 
-  const isEndorsed = Array.isArray(complaint.endorsed_by) && currentUserId && complaint.endorsed_by.some(e => {
+  const endorsedList = Array.isArray(complaint.endorsed_by)
+    ? complaint.endorsed_by
+    : Array.isArray(complaint.endorsedBy)
+    ? complaint.endorsedBy
+    : [];
+  const isEndorsed = currentUserId && endorsedList.some(e => {
     if (typeof e === 'object' && e !== null) return String(e.employeeId) === String(currentUserId);
     return String(e) === String(currentUserId);
   });
-  const endorsementCount = Array.isArray(complaint.endorsed_by) ? complaint.endorsed_by.length : (complaint.upvotes || 0);
+  const endorsementCount = endorsedList.length || (complaint.upvotes || 0);
 
   return (
     <TouchableOpacity

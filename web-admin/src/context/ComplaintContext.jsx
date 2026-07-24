@@ -105,7 +105,8 @@ export function ComplaintProvider({ children }) {
   // Load complaints on mount or session change
   useEffect(() => {
     const loadData = async () => {
-      if (!session) {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null;
+      if (!session || !token) {
         setComplaints([]);
         setMergedGroups([]);
         setRooms([]);
@@ -124,7 +125,9 @@ export function ComplaintProvider({ children }) {
         setMergedGroups(mergedData.map(normalizeMergedGroup));
         setRooms(roomsData);
       } catch (err) {
-        setError(err.message);
+        if (!err.message?.includes('missing token')) {
+          setError(err.message);
+        }
         console.error('Failed to load data:', err);
       } finally {
         setLoading(false);
@@ -135,6 +138,8 @@ export function ComplaintProvider({ children }) {
 
     // Auto-refresh background polling every 3 seconds
     const pollInterval = setInterval(async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null;
+      if (!session || !token) return;
       try {
         const [complaintsData, mergedData, roomsData] = await Promise.all([
           apiService.getComplaints(),

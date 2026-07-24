@@ -33,7 +33,12 @@ export const EmployeePublicScreen = () => {
       group.status === 'completed'
   );
 
-  // Ongoing public tickets
+  // Build set of constituent complaint IDs belonging to any merged group
+  const allMergedConstituentIds = new Set(
+    mergedGroups.flatMap(g => g.constituentComplaintIds || g.constituent_complaint_ids || [])
+  );
+
+  // Ongoing public tickets (excluding tickets already merged into a group)
   const individualOngoing = complaints.filter(
     (c) =>
       c.visibility === 'public' &&
@@ -41,6 +46,7 @@ export const EmployeePublicScreen = () => {
       !c.parent_complaint_id &&
       !c.mergedIntoId &&
       !c.merged_into_id &&
+      !allMergedConstituentIds.has(String(c.id)) &&
       c.status !== 'completed' &&
       c.status !== 'rejected'
   );
@@ -53,6 +59,7 @@ export const EmployeePublicScreen = () => {
       !c.parent_complaint_id &&
       !c.mergedIntoId &&
       !c.merged_into_id &&
+      !allMergedConstituentIds.has(String(c.id)) &&
       c.status === 'completed'
   );
 

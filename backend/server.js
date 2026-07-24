@@ -1126,6 +1126,18 @@ app.put("/api/managers/:id", requireAuth, async (req, res) => {
   }
 });
 
+async function generateUniqueEmployeeId(pool) {
+  for (let i = 0; i < 10; i++) {
+    const num = Math.floor(10000000 + Math.random() * 90000000);
+    const candidate = `emp${num}`;
+    const check = await pool.query("SELECT 1 FROM employees WHERE lower(id) = lower($1)", [candidate]);
+    if (check.rows.length === 0) {
+      return candidate;
+    }
+  }
+  return `emp${Date.now().toString().slice(-8)}`;
+}
+
 // POST /api/employees (Authority/Manager)
 app.post("/api/employees", requireAuth, async (req, res) => {
   try {
@@ -1134,11 +1146,10 @@ app.post("/api/employees", requireAuth, async (req, res) => {
     }
 
     const { id, name, email } = req.body;
-    if (!id || !name || !email) {
-      return res.status(400).json({ error: "Missing required fields: id, name, email" });
+    if (!name || !email) {
+      return res.status(400).json({ error: "Missing required fields: name, email" });
     }
 
-    const normalizedId = id.trim();
     const normalizedName = name.trim();
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -1146,13 +1157,26 @@ app.post("/api/employees", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Email must be a valid @xyzcompany.com address" });
     }
 
-    // Check if employee already exists
-    const existing = await pool.query(
-      "SELECT 1 FROM employees WHERE lower(id) = lower($1) OR lower(email) = lower($2)",
-      [normalizedId, normalizedEmail]
+    // Check if email already exists
+    const existingEmail = await pool.query(
+      "SELECT 1 FROM employees WHERE lower(email) = lower($1)",
+      [normalizedEmail]
     );
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: "Employee with this ID or Email already exists" });
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: "An employee with this email already exists" });
+    }
+
+    let finalId = id ? id.trim() : '';
+    if (!finalId) {
+      finalId = await generateUniqueEmployeeId(pool);
+    } else {
+      const existingId = await pool.query(
+        "SELECT 1 FROM employees WHERE lower(id) = lower($1)",
+        [finalId]
+      );
+      if (existingId.rows.length > 0) {
+        return res.status(400).json({ error: "Employee ID already exists" });
+      }
     }
 
     // Password defaults to "Welcome123$"
@@ -1161,10 +1185,10 @@ app.post("/api/employees", requireAuth, async (req, res) => {
 
     await pool.query(
       "INSERT INTO employees (id, name, email, password, needs_password_reset, is_verified) VALUES ($1, $2, $3, $4, TRUE, TRUE)",
-      [normalizedId, normalizedName, normalizedEmail, hashedPassword]
+      [finalId, normalizedName, normalizedEmail, hashedPassword]
     );
 
-    res.status(201).json({ message: "Employee created successfully" });
+    res.status(201).json({ message: "Employee created successfully", employeeId: finalId, id: finalId });
   } catch (err) {
     console.error("Employee creation error:", err.message);
     res.status(500).json({ error: "Failed to create employee", details: err.message });

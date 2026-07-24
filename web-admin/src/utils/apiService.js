@@ -98,8 +98,10 @@ export const apiService = {
       body: JSON.stringify(complaint),
     }),
 
-  getComplaints: () =>
-    apiFetch(`${API_URL}/complaints`, { headers: authHeaders() }),
+  getComplaints: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/complaints`, { headers: authHeaders() });
+  },
 
   getComplaintById: (id) =>
     apiFetch(`${API_URL}/complaints/${id}`, { headers: authHeaders() }),
@@ -180,8 +182,10 @@ export const apiService = {
     });
   },
 
-  getMergedGroups: () =>
-    apiFetch(`${API_URL}/merged-groups`, { headers: authHeaders() }),
+  getMergedGroups: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/merged-groups`, { headers: authHeaders() });
+  },
 
   getMergedGroupById: (id) =>
     apiFetch(`${API_URL}/merged-groups/${id}`, { headers: authHeaders() }),
@@ -207,8 +211,10 @@ export const apiService = {
     }),
 
   // ── Rooms CRUD ─────────────────────────────────────────────────────────────
-  getRooms: () =>
-    apiFetch(`${API_URL}/rooms`, { headers: authHeaders() }),
+  getRooms: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/rooms`, { headers: authHeaders() });
+  },
 
   createRoom: (roomNumber, floorNumber) =>
     apiFetch(`${API_URL}/rooms`, {
@@ -246,8 +252,10 @@ export const apiService = {
       body: JSON.stringify({ role, userId, email, newPassword }),
     }),
 
-  getManagers: () =>
-    apiFetch(`${API_URL}/managers`, { headers: authHeaders() }),
+  getManagers: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/managers`, { headers: authHeaders() });
+  },
 
   createManager: (id, name, email) =>
     apiFetch(`${API_URL}/managers`, {
@@ -270,14 +278,16 @@ export const apiService = {
       body: JSON.stringify({ name, email }),
     }),
 
-  getEmployees: () =>
-    apiFetch(`${API_URL}/employees`, { headers: authHeaders() }),
+  getEmployees: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/employees`, { headers: authHeaders() });
+  },
 
-  createEmployee: (id, name, email) =>
+  createEmployee: (name, email, id) =>
     apiFetch(`${API_URL}/employees`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ id, name, email }),
+      body: JSON.stringify({ name, email, ...(id ? { id } : {}) }),
     }),
 
   updateEmployee: (id, name, email) =>
