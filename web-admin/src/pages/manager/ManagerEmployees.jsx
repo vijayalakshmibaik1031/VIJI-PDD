@@ -51,7 +51,7 @@ export default function ManagerEmployees() {
     try {
       const res = await apiService.createEmployee(name.trim(), email.trim().toLowerCase());
       setSuccess(`Employee created successfully! Assigned ID: ${res.employeeId || res.id} (Default password: Welcome123$)`);
-      fetchEmployees();
+      fetchEmployees(true);
       setShowAddModal(false);
       resetForm();
     } catch (err) {
@@ -72,7 +72,7 @@ export default function ManagerEmployees() {
     try {
       await apiService.updateEmployee(editingUserId, name.trim(), email.trim().toLowerCase());
       setSuccess('Employee updated successfully.');
-      fetchEmployees();
+      fetchEmployees(true);
       setShowEditModal(false);
       resetForm();
     } catch (err) {
@@ -128,7 +128,7 @@ export default function ManagerEmployees() {
         </div>
       )}
 
-      {loading ? (
+      {loading && employees.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
         </div>

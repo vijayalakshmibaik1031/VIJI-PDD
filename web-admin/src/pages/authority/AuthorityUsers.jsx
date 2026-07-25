@@ -66,7 +66,7 @@ export default function AuthorityUsers() {
         const res = await apiService.createEmployee(name.trim(), email.trim().toLowerCase());
         setSuccess(`Employee created successfully! Assigned ID: ${res.employeeId || res.id} (Default password: Welcome123$)`);
       }
-      fetchUsers();
+      fetchUsers(true);
       setShowAddModal(false);
       resetForm();
     } catch (err) {
@@ -92,7 +92,7 @@ export default function AuthorityUsers() {
         await apiService.updateEmployee(editingUserId, name.trim(), email.trim().toLowerCase());
         setSuccess('Employee updated successfully.');
       }
-      fetchUsers();
+      fetchUsers(true);
       setShowEditModal(false);
       resetForm();
     } catch (err) {
@@ -115,7 +115,7 @@ export default function AuthorityUsers() {
         await apiService.deleteEmployee(editingUserId);
         setSuccess('Employee deleted successfully.');
       }
-      fetchUsers();
+      fetchUsers(true);
       setShowEditModal(false);
       resetForm();
     } catch (err) {
@@ -207,7 +207,7 @@ export default function AuthorityUsers() {
         />
       </div>
 
-      {loading ? (
+      {loading && managers.length === 0 && employees.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
         </div>
