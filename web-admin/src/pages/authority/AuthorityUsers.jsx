@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../../utils/apiService';
 import { formatFloorName } from '../../utils/facility';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function AuthorityUsers() {
   const [activeTab, setActiveTab] = useState('managers'); // 'managers' | 'employees'
@@ -9,6 +10,14 @@ export default function AuthorityUsers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+
+  const togglePasswordVisibility = (id) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -219,6 +228,7 @@ export default function AuthorityUsers() {
                 <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Password</th>
                 {activeTab === 'managers' && <th className="px-6 py-4">Managed Floor</th>}
                 <th className="px-6 py-4">Created At</th>
                 <th className="px-6 py-4 text-right">Actions</th>
@@ -234,7 +244,7 @@ export default function AuthorityUsers() {
                   );
                   return filtered.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-10 text-slate-500 font-medium">
+                      <td colSpan="7" className="text-center py-10 text-slate-500 font-medium">
                         {searchQuery ? 'No managers match your search.' : 'No floor managers created yet. Use "Manage Rooms" to add floors.'}
                       </td>
                     </tr>
@@ -244,6 +254,20 @@ export default function AuthorityUsers() {
                         <td className="px-6 py-4 font-mono font-bold text-indigo-400">{mgr.id}</td>
                         <td className="px-6 py-4 font-semibold text-white">{mgr.name}</td>
                         <td className="px-6 py-4 text-slate-300">{mgr.email || 'N/A'}</td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={visiblePasswords[mgr.id] ? "text-slate-200" : "blur-[4px] select-none text-slate-500"}>
+                              {mgr.password || 'Welcome123$'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility(mgr.id)}
+                              className="text-slate-400 hover:text-white transition"
+                            >
+                              {visiblePasswords[mgr.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">
                             🏢 {formatFloorName(mgr.floor_number)}
@@ -273,7 +297,7 @@ export default function AuthorityUsers() {
                   );
                   return filtered.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="text-center py-10 text-slate-500 font-medium">
+                      <td colSpan="6" className="text-center py-10 text-slate-500 font-medium">
                         {searchQuery ? 'No employees match your search.' : 'No employees found.'}
                       </td>
                     </tr>
@@ -283,6 +307,20 @@ export default function AuthorityUsers() {
                         <td className="px-6 py-4 font-mono font-bold text-violet-400">{emp.id}</td>
                         <td className="px-6 py-4 font-semibold text-white">{emp.name}</td>
                         <td className="px-6 py-4 text-slate-300">{emp.email || 'N/A'}</td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={visiblePasswords[emp.id] ? "text-slate-200" : "blur-[4px] select-none text-slate-500"}>
+                              {emp.password || 'Welcome123$'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility(emp.id)}
+                              className="text-slate-400 hover:text-white transition"
+                            >
+                              {visiblePasswords[emp.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-slate-400 text-xs">
                           {new Date(emp.created_at).toLocaleDateString()}
                         </td>

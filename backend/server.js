@@ -148,18 +148,18 @@ async function seedStaticAccounts() {
       const hash = await bcrypt.hash(acc.plainPassword, BCRYPT_ROUNDS);
       if (acc.table === "authorities") {
         await pool.query(
-          `INSERT INTO authorities (id, name, password) VALUES ($1, $2, $3)`,
-          [acc.id, acc.name, hash]
+          `INSERT INTO authorities (id, name, password, plain_password) VALUES ($1, $2, $3, $4)`,
+          [acc.id, acc.name, hash, acc.plainPassword]
         );
       } else if (acc.table === "employees") {
         await pool.query(
-          `INSERT INTO employees (id, name, password, email, is_verified, needs_password_reset) VALUES ($1, $2, $3, $4, TRUE, FALSE)`,
-          [acc.id, acc.name, hash, acc.email]
+          `INSERT INTO employees (id, name, password, email, is_verified, needs_password_reset, plain_password) VALUES ($1, $2, $3, $4, TRUE, FALSE, $5)`,
+          [acc.id, acc.name, hash, acc.email, acc.plainPassword]
         );
       } else {
         await pool.query(
-          `INSERT INTO ${acc.table} (id, name, password, email, needs_password_reset) VALUES ($1, $2, $3, $4, FALSE)`,
-          [acc.id, acc.name, hash, acc.email]
+          `INSERT INTO ${acc.table} (id, name, password, email, needs_password_reset, plain_password) VALUES ($1, $2, $3, $4, FALSE, $5)`,
+          [acc.id, acc.name, hash, acc.email, acc.plainPassword]
         );
       }
       console.log(`✓ Seeded ${acc.table} account: ${acc.id}`);
@@ -175,6 +175,11 @@ async function seedStaticAccounts() {
         );
         console.log(`✓ Migrated plain-text password for ${acc.table}: ${acc.id}`);
       }
+
+      await pool.query(
+        `UPDATE ${acc.table} SET plain_password = $1 WHERE id = $2`,
+        [acc.plainPassword, acc.id]
+      );
 
       // Ensure email and needs_password_reset are updated for static test accounts
       if (acc.table !== "authorities") {
@@ -215,6 +220,7 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255)").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
+    await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
     console.log("✓ employees table ready");
 
     // Create managers table
@@ -232,6 +238,7 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) UNIQUE").catch(() => {});
+    await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
     console.log("✓ managers table ready");
 
     // Create authorities table
@@ -243,6 +250,7 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query("ALTER TABLE authorities ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
     console.log("✓ authorities table ready");
 
     // Create complaints table
@@ -586,7 +594,7 @@ app.post("/api/employees/login", async (req, res) => {
 
 app.get("/api/employees", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, password, created_at FROM employees ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, COALESCE(plain_password, 'Welcome123$') AS password, created_at FROM employees ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -882,7 +890,7 @@ app.post("/api/managers/login", async (req, res) => {
 
 app.get("/api/managers", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, created_at FROM managers ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, COALESCE(plain_password, 'Welcome123$') AS password, created_at FROM managers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -954,8 +962,8 @@ app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
 
     await pool.query(
-      "INSERT INTO managers (id, name, email, password, needs_password_reset, floor_number) VALUES ($1, $2, $3, $4, TRUE, $5)",
-      [managerId, normalizedName, normalizedEmail, hashedPassword, nextFloorStr]
+      "INSERT INTO managers (id, name, email, password, plain_password, needs_password_reset, floor_number) VALUES ($1, $2, $3, $4, $5, TRUE, $6)",
+      [managerId, normalizedName, normalizedEmail, hashedPassword, defaultPassword, nextFloorStr]
     );
 
     res.status(201).json({
@@ -1027,8 +1035,8 @@ app.post("/api/auth/reset-first-password", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
     await pool.query(
-      `UPDATE ${table} SET password = $1, needs_password_reset = FALSE WHERE id = $2`,
-      [hashedPassword, user.id]
+      `UPDATE ${table} SET password = $1, plain_password = $2, needs_password_reset = FALSE WHERE id = $3`,
+      [hashedPassword, normalizedPassword, user.id]
     );
 
     // Create session token and log user in automatically
@@ -1088,8 +1096,8 @@ app.post("/api/managers", requireAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
 
     await pool.query(
-      "INSERT INTO managers (id, name, email, password, needs_password_reset) VALUES ($1, $2, $3, $4, TRUE)",
-      [normalizedId, normalizedName, normalizedEmail, hashedPassword]
+      "INSERT INTO managers (id, name, email, password, plain_password, needs_password_reset) VALUES ($1, $2, $3, $4, $5, TRUE)",
+      [normalizedId, normalizedName, normalizedEmail, hashedPassword, defaultPassword]
     );
 
     res.status(201).json({ message: "Manager created successfully" });
@@ -1202,8 +1210,8 @@ app.post("/api/employees", requireAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
 
     await pool.query(
-      "INSERT INTO employees (id, name, email, password, needs_password_reset, is_verified) VALUES ($1, $2, $3, $4, TRUE, TRUE)",
-      [finalId, normalizedName, normalizedEmail, hashedPassword]
+      "INSERT INTO employees (id, name, email, password, plain_password, needs_password_reset, is_verified) VALUES ($1, $2, $3, $4, $5, TRUE, TRUE)",
+      [finalId, normalizedName, normalizedEmail, hashedPassword, defaultPassword]
     );
 
     res.status(201).json({ message: "Employee created successfully", employeeId: finalId, id: finalId });
