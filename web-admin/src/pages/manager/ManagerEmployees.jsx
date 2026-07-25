@@ -17,21 +17,25 @@ export default function ManagerEmployees() {
   const [email, setEmail] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
 
-  const fetchEmployees = async () => {
-    setLoading(true);
+  const fetchEmployees = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const res = await apiService.getEmployees();
       setEmployees(res);
     } catch (err) {
-      setError(err.message || 'Failed to load employees.');
+      if (!silent) setError(err.message || 'Failed to load employees.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchEmployees();
+    const interval = setInterval(() => {
+      fetchEmployees(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddSubmit = async (e) => {

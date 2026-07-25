@@ -23,8 +23,8 @@ export default function AuthorityUsers() {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const [mgrRes, empRes] = await Promise.all([
@@ -34,14 +34,18 @@ export default function AuthorityUsers() {
       setManagers(mgrRes);
       setEmployees(empRes);
     } catch (err) {
-      setError(err.message || 'Failed to load users.');
+      if (!silent) setError(err.message || 'Failed to load users.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
+    const interval = setInterval(() => {
+      fetchUsers(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddSubmit = async (e) => {

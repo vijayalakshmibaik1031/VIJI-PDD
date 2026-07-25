@@ -551,8 +551,8 @@ function AlertSystemComponent() {
         </div>
       )}
 
-      {/* Floating Alert Trigger Panel (Top Right Box) */}
-      <div className="fixed top-4 right-4 z-40">
+      {/* Floating Alert Trigger Panel (Bottom Right Box) */}
+      <div className="fixed bottom-6 right-6 z-40">
         {!isOpen ? (
           <button
             type="button"
