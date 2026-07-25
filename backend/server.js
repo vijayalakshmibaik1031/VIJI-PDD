@@ -221,6 +221,7 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     await pool.query("ALTER TABLE employees ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
+    await pool.query("UPDATE employees SET plain_password = password WHERE plain_password IS NULL AND password NOT LIKE '$2%'").catch(() => {});
     console.log("✓ employees table ready");
 
     // Create managers table
@@ -239,6 +240,7 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
+    await pool.query("UPDATE managers SET plain_password = password WHERE plain_password IS NULL AND password NOT LIKE '$2%'").catch(() => {});
     console.log("✓ managers table ready");
 
     // Create authorities table
@@ -564,7 +566,7 @@ app.post("/api/employees/login", async (req, res) => {
     // Migrate plain-text password to bcrypt on first login
     if (!isBcrypt && employee.password) {
       const hashed = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
-      await pool.query("UPDATE employees SET password = $1 WHERE id = $2", [hashed, employee.id]);
+      await pool.query("UPDATE employees SET password = $1, plain_password = $2 WHERE id = $3", [hashed, normalizedPassword, employee.id]);
     }
 
     const token = generateToken();
@@ -863,7 +865,7 @@ app.post("/api/managers/login", async (req, res) => {
 
     if (!isBcrypt && manager.password) {
       const hashed = await bcrypt.hash(normalizedPassword, BCRYPT_ROUNDS);
-      await pool.query("UPDATE managers SET password = $1 WHERE id = $2", [hashed, manager.id]);
+      await pool.query("UPDATE managers SET password = $1, plain_password = $2 WHERE id = $3", [hashed, normalizedPassword, manager.id]);
     }
 
     const token = generateToken();
