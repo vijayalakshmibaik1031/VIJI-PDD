@@ -4,7 +4,7 @@ import { CustomHeader } from '../../components/CustomHeader';
 import { useComplaints } from '../../context/ComplaintContext';
 
 export const ManagerOverviewScreen = () => {
-  const { complaints, fetchComplaints, loading } = useComplaints();
+  const { complaints, fetchComplaints, loading, alerts = [] } = useComplaints();
 
   useEffect(() => {
     fetchComplaints();
@@ -51,6 +51,28 @@ export const ManagerOverviewScreen = () => {
             Total tickets in system: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{complaints.length}</Text>
           </Text>
           <Text style={styles.summarySub}>Pull down to refresh live database metrics.</Text>
+        </View>
+
+        <View style={[styles.summaryCard, { marginTop: 15, borderColor: '#EF4444' }]}>
+          <Text style={[styles.summaryTitle, { color: '#EF4444' }]}>🚨 Emergency Alert History</Text>
+          {alerts.length === 0 ? (
+            <Text style={[styles.summaryText, { color: '#94A3B8', fontSize: 12, marginTop: 4 }]}>No emergency alerts triggered yet.</Text>
+          ) : (
+            alerts.slice(0, 10).map((alert) => (
+              <View key={alert.id} style={{ borderBottomWidth: 1, borderBottomColor: '#334155', paddingVertical: 8 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '800' }}>{alert.severity.toUpperCase()}</Text>
+                  <Text style={{ color: alert.is_active ? '#EF4444' : '#64748B', fontSize: 9, fontWeight: '700' }}>
+                    {alert.is_active ? 'ACTIVE' : 'RESOLVED'}
+                  </Text>
+                </View>
+                <Text style={{ color: '#CBD5E1', fontSize: 12, marginTop: 2 }}>{alert.description}</Text>
+                <Text style={{ color: '#64748B', fontSize: 10, marginTop: 4 }}>
+                  Floor: {alert.floor} | By: {alert.created_by}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </View>

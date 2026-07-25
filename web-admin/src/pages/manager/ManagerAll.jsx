@@ -131,7 +131,7 @@ function WorkflowHistory({ thread, formatRelativeTime }) {
 }
 
 export default function ManagerAll() {
-  const { complaints, mergedGroups } = useComplaints();
+  const { complaints, mergedGroups, alerts = [] } = useComplaints();
   const [activeTab, setActiveTab] = useState('pending'); // pending, ongoing, completed
   const [subCategory, setSubCategory] = useState('private'); // private, public, merged
 
@@ -235,7 +235,7 @@ export default function ManagerAll() {
     });
   }, [mergedGroups, activeTab, subCategory, room, category, filterYear, filterMonth, filterDay]);
 
-  const isEmpty = subCategory === 'merged' ? !filteredMerged.length : !filteredThreads.length;
+  const isEmpty = subCategory === 'alerts' ? !alerts.length : (subCategory === 'merged' ? !filteredMerged.length : !filteredThreads.length);
 
   return (
     <div className="space-y-4">
@@ -306,9 +306,9 @@ export default function ManagerAll() {
         ))}
       </div>
 
-      {/* Sub-tabs (Private, Public, Merged) */}
+      {/* Sub-tabs (Private, Public, Merged, Alerts) */}
       <div className="flex gap-4">
-        {['private', 'public', 'merged'].map((sub) => {
+        {['private', 'public', 'merged', 'alerts'].map((sub) => {
           if (activeTab === 'pending' && sub === 'merged') return null; // No merged groups in pending tab
           return (
             <button
@@ -320,7 +320,7 @@ export default function ManagerAll() {
               }`}
               onClick={() => setSubCategory(sub)}
             >
-              {sub}
+              {sub === 'alerts' ? 'Alert History' : sub}
             </button>
           );
         })}
@@ -330,6 +330,27 @@ export default function ManagerAll() {
       <div className="space-y-3">
         {isEmpty ? (
           <EmptyState text={`No ${activeTab} ${subCategory} issues match filters.`} />
+        ) : subCategory === 'alerts' ? (
+          alerts.map((alert) => (
+            <div className="rounded border bg-white p-4 shadow-sm border-red-200" key={alert.id}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-slate-800 text-sm">🚨 {alert.severity.toUpperCase()}</p>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${alert.is_active ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-600'}`}>
+                    {alert.is_active ? 'ACTIVE' : 'RESOLVED'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">{new Date(alert.created_at || alert.createdAt).toLocaleString()}</p>
+              </div>
+              <p className="text-sm text-slate-700 mt-2">{alert.description}</p>
+              <div className="flex justify-between items-center mt-3 border-t pt-2 text-[10px] text-slate-400">
+                <p>Location: Floor {alert.floor} | Created by: {alert.created_by} ({alert.created_by_role})</p>
+                {!alert.is_active && alert.resolved_at && (
+                  <p>Resolved by: {alert.resolved_by} ({alert.resolved_by_role}) at {new Date(alert.resolved_at).toLocaleString()}</p>
+                )}
+              </div>
+            </div>
+          ))
         ) : subCategory === 'merged' ? (
           filteredMerged.map((group) => {
             const items = complaints.filter((c) => group.constituentComplaintIds.includes(c.id));

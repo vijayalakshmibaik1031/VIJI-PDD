@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useComplaints } from '../context/ComplaintContext';
@@ -227,11 +227,19 @@ export default function AppShell({ title, links }) {
     return <EmployeeSetupCredentials logout={logout} />;
   }
 
-  if (isNative) {
-    return <NativeLayout title={title} links={links} session={session} logout={logout} />;
-  }
+  const renderContent = () => {
+    if (isNative) {
+      return <NativeLayout title={title} links={links} session={session} logout={logout} />;
+    }
+    return <WebLayout title={title} links={links} session={session} logout={logout} />;
+  };
 
-  return <WebLayout title={title} links={links} session={session} logout={logout} />;
+  return (
+    <>
+      {session && <AlertSystemComponent />}
+      {renderContent()}
+    </>
+  );
 }
 
 // First-time credentials setup screen for Google OAuth employees
@@ -377,5 +385,253 @@ function EmployeeSetupCredentials({ logout }) {
         </button>
       </form>
     </div>
+  );
+}
+
+function AlertSystemComponent() {
+  const { activeAlerts, createAlert, resolveAlert } = useComplaints();
+  const { session } = useAuth();
+  const [acknowledgedIds, setAcknowledgedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('acknowledged_alerts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [severity, setSeverity] = useState('Critical');
+  const [description, setDescription] = useState('');
+  const [floor, setFloor] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Request notification permission
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // HTML5 Push notification
+  const [lastNotifiedId, setLastNotifiedId] = useState(null);
+  useEffect(() => {
+    if (activeAlerts && activeAlerts.length > 0) {
+      const latest = activeAlerts[0];
+      if (latest.id !== lastNotifiedId) {
+        setLastNotifiedId(latest.id);
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification(`🚨 Emergency Alert: ${latest.severity}`, {
+            body: `${latest.description} (Floor: ${latest.floor})`,
+          });
+        }
+      }
+    }
+  }, [activeAlerts, lastNotifiedId]);
+
+  const handleStartAlert = async (e) => {
+    e.preventDefault();
+    if (!description.trim() || !floor.trim()) {
+      setError('Please enter both issue description and floor.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await createAlert({ severity, description, floor });
+      setDescription('');
+      setFloor('');
+      setIsOpen(false);
+    } catch (err) {
+      setError(err.message || 'Failed to trigger alert');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcknowledge = (id) => {
+    const updated = [...acknowledgedIds, id];
+    setAcknowledgedIds(updated);
+    localStorage.setItem('acknowledged_alerts', JSON.stringify(updated));
+  };
+
+  // Find alerts that are active and NOT acknowledged
+  const unacknowledgedActiveAlerts = activeAlerts.filter(a => !acknowledgedIds.includes(a.id));
+  const acknowledgedActiveAlerts = activeAlerts.filter(a => acknowledgedIds.includes(a.id));
+
+  // Determine if user can resolve alert
+  const canResolve = (alert) => {
+    if (!session) return false;
+    const isAuthority = session.role === 'authority';
+    const isManager = session.role === 'manager';
+    const isCreator = alert.created_by.toLowerCase() === session.userId.toLowerCase();
+    return isAuthority || isManager || isCreator;
+  };
+
+  return (
+    <>
+      {/* Centered Alert Popup Modal for Unacknowledged Active Alerts */}
+      {unacknowledgedActiveAlerts.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-red-500 rounded-2xl p-6 shadow-2xl text-white relative">
+            <div className="flex items-center gap-3 text-red-500 mb-4">
+              <span className="text-3xl animate-bounce">🚨</span>
+              <h2 className="text-2xl font-bold tracking-tight">EMERGENCY ALERT</h2>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                <p className="text-xs text-red-400 font-semibold uppercase tracking-wider">Severity</p>
+                <p className="text-lg font-bold text-red-200">{unacknowledgedActiveAlerts[0].severity}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Issue Description</p>
+                <p className="text-sm text-slate-200 mt-1 whitespace-pre-wrap">{unacknowledgedActiveAlerts[0].description}</p>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Location / Floor</p>
+                  <p className="text-sm font-bold text-slate-200 mt-1">Floor: {unacknowledgedActiveAlerts[0].floor}</p>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Reported By</p>
+                  <p className="text-sm text-slate-200 mt-1 truncate">{unacknowledgedActiveAlerts[0].created_by} ({unacknowledgedActiveAlerts[0].created_by_role})</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 bg-red-600 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition duration-150"
+                onClick={() => handleAcknowledge(unacknowledgedActiveAlerts[0].id)}
+              >
+                OK
+              </button>
+              {canResolve(unacknowledgedActiveAlerts[0]) && (
+                <button
+                  type="button"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-350 font-semibold px-4 rounded-xl transition duration-150 border border-slate-700"
+                  onClick={() => resolveAlert(unacknowledgedActiveAlerts[0].id)}
+                >
+                  Turn Off
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Blinking Hovering Banner for Acknowledged Active Alerts */}
+      {acknowledgedActiveAlerts.length > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-50 pointer-events-none p-3 flex justify-center">
+          <div className="pointer-events-auto max-w-3xl w-full bg-red-650/90 border border-red-500 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-xl">⚠️</span>
+              <div className="min-w-0">
+                <p className="text-xs uppercase font-extrabold tracking-wider text-red-100">Active Alert ({acknowledgedActiveAlerts[0].severity})</p>
+                <p className="text-sm font-medium text-white truncate">{acknowledgedActiveAlerts[0].description} | Floor: {acknowledgedActiveAlerts[0].floor}</p>
+              </div>
+            </div>
+            {canResolve(acknowledgedActiveAlerts[0]) && (
+              <button
+                type="button"
+                className="shrink-0 bg-white text-red-700 hover:bg-red-50 font-bold px-3 py-1.5 rounded-lg text-xs transition duration-150"
+                onClick={() => resolveAlert(acknowledgedActiveAlerts[0].id)}
+              >
+                Turn Off Alert
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Alert Trigger Panel (Top Right Box) */}
+      <div className="fixed top-4 right-4 z-40">
+        {!isOpen ? (
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/60 text-white font-bold px-4 py-2.5 rounded-xl shadow-xl hover:bg-slate-800 transition duration-150 backdrop-blur-md"
+            onClick={() => setIsOpen(true)}
+          >
+            <span>🚨</span>
+            <span>Emergency Panel</span>
+          </button>
+        ) : (
+          <div className="w-80 bg-slate-900 border border-slate-700/60 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-white">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold text-sm text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🚨</span> Trigger Alert
+              </h3>
+              <button
+                type="button"
+                className="text-xs text-slate-400 hover:text-white"
+                onClick={() => setIsOpen(false)}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {error && (
+              <p className="text-xs text-red-400 mb-2 font-semibold bg-red-950/40 p-2 border border-red-900/40 rounded-lg">
+                ⚠️ {error}
+              </p>
+            )}
+
+            <form onSubmit={handleStartAlert} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Severity</label>
+                <select
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white focus:border-red-500 rounded-lg p-2 text-xs"
+                >
+                  <option value="Critical">Critical (Disaster/Fire/Emergency)</option>
+                  <option value="High">High Severity (Major Issue)</option>
+                  <option value="Medium">Medium Severity</option>
+                  <option value="Low">Low Severity</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Floor / Room</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Floor 3, Room 305"
+                  value={floor}
+                  onChange={(e) => setFloor(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 focus:border-red-500 rounded-lg p-2 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Description</label>
+                <textarea
+                  placeholder="Describe the emergency/issue..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 focus:border-red-500 rounded-lg p-2 text-xs h-16 resize-none"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg transition duration-150 disabled:opacity-50"
+              >
+                {loading ? 'Starting Alert...' : 'Start Alert 🚨'}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

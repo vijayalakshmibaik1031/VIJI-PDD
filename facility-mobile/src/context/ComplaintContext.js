@@ -13,6 +13,8 @@ export const ComplaintProvider = ({ children }) => {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [activeAlerts, setActiveAlerts] = useState([]);
 
   // ── Fetchers ────────────────────────────────────────────────────────────
 
@@ -67,6 +69,26 @@ export const ComplaintProvider = ({ children }) => {
     }
   }, [token]);
 
+  const fetchAlerts = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiCall('/alerts', { method: 'GET' }, token);
+      setAlerts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+    }
+  }, [token]);
+
+  const fetchActiveAlerts = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiCall('/alerts/active', { method: 'GET' }, token);
+      setActiveAlerts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching active alerts:', err);
+    }
+  }, [token]);
+
   const refreshAll = useCallback(async () => {
     await Promise.all([
       fetchComplaints(),
@@ -74,8 +96,10 @@ export const ComplaintProvider = ({ children }) => {
       fetchRooms(),
       fetchEmployees(),
       fetchManagers(),
+      fetchAlerts(),
+      fetchActiveAlerts(),
     ]);
-  }, [fetchComplaints, fetchMergedGroups, fetchRooms, fetchEmployees, fetchManagers]);
+  }, [fetchComplaints, fetchMergedGroups, fetchRooms, fetchEmployees, fetchManagers, fetchAlerts, fetchActiveAlerts]);
 
   // Silent automatic background sync polling (runs every 3 seconds)
   useEffect(() => {
@@ -436,6 +460,31 @@ export const ComplaintProvider = ({ children }) => {
     }
   };
 
+  const createAlert = async (alertData) => {
+    try {
+      const data = await apiCall('/alerts', {
+        method: 'POST',
+        body: JSON.stringify(alertData),
+      }, token);
+      await refreshAll();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const resolveAlert = async (alertId) => {
+    try {
+      const data = await apiCall(`/alerts/${alertId}/resolve`, {
+        method: 'POST',
+      }, token);
+      await refreshAll();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   return (
     <ComplaintContext.Provider
       value={{
@@ -479,6 +528,12 @@ export const ComplaintProvider = ({ children }) => {
         deleteManager,
         resetFirstPassword,
         updateEmployeeProfile,
+        alerts,
+        activeAlerts,
+        createAlert,
+        resolveAlert,
+        fetchAlerts,
+        fetchActiveAlerts,
       }}
     >
       {children}

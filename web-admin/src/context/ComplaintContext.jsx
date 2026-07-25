@@ -46,6 +46,8 @@ export function ComplaintProvider({ children }) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [activeAlerts, setActiveAlerts] = useState([]);
 
   const normalizeComplaint = (complaint) => ({
     id: complaint.id,
@@ -116,14 +118,18 @@ export function ComplaintProvider({ children }) {
       try {
         setLoading(true);
         setError(null);
-        const [complaintsData, mergedData, roomsData] = await Promise.all([
+        const [complaintsData, mergedData, roomsData, alertsData, activeAlertsData] = await Promise.all([
           apiService.getComplaints(),
           apiService.getMergedGroups(),
           apiService.getRooms(),
+          apiService.getAlerts(),
+          apiService.getActiveAlerts(),
         ]);
         setComplaints(complaintsData.map(normalizeComplaint));
         setMergedGroups(mergedData.map(normalizeMergedGroup));
         setRooms(roomsData);
+        setAlerts(alertsData || []);
+        setActiveAlerts(activeAlertsData || []);
       } catch (err) {
         if (!err.message?.includes('missing token')) {
           setError(err.message);
@@ -141,14 +147,18 @@ export function ComplaintProvider({ children }) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('fd_token') : null;
       if (!session || !token) return;
       try {
-        const [complaintsData, mergedData, roomsData] = await Promise.all([
+        const [complaintsData, mergedData, roomsData, alertsData, activeAlertsData] = await Promise.all([
           apiService.getComplaints(),
           apiService.getMergedGroups(),
           apiService.getRooms(),
+          apiService.getAlerts(),
+          apiService.getActiveAlerts(),
         ]);
         setComplaints(complaintsData.map(normalizeComplaint));
         setMergedGroups(mergedData.map(normalizeMergedGroup));
         setRooms(roomsData);
+        setAlerts(alertsData || []);
+        setActiveAlerts(activeAlertsData || []);
       } catch {
         // silent background poll catch
       }
@@ -205,14 +215,40 @@ export function ComplaintProvider({ children }) {
   };
 
   const reload = async () => {
-    const [complaintsData, mergedData, roomsData] = await Promise.all([
+    const [complaintsData, mergedData, roomsData, alertsData, activeAlertsData] = await Promise.all([
       apiService.getComplaints(),
       apiService.getMergedGroups(),
       apiService.getRooms(),
+      apiService.getAlerts(),
+      apiService.getActiveAlerts(),
     ]);
     setComplaints(complaintsData.map(normalizeComplaint));
     setMergedGroups(mergedData.map(normalizeMergedGroup));
     setRooms(roomsData);
+    setAlerts(alertsData || []);
+    setActiveAlerts(activeAlertsData || []);
+  };
+
+  const createAlert = async (payload) => {
+    try {
+      setError(null);
+      await apiService.createAlert(payload);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const resolveAlert = async (id) => {
+    try {
+      setError(null);
+      await apiService.resolveAlert(id);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   const createRoom = async (roomNumber, floorNumber) => {
@@ -437,9 +473,13 @@ export function ComplaintProvider({ children }) {
       completeMergedComplaint,
       status: STATUS,
       visibility: VISIBILITY,
+      alerts,
+      activeAlerts,
+      createAlert,
+      resolveAlert,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [complaints, mergedGroups, rooms, loading, error],
+    [complaints, mergedGroups, rooms, loading, error, alerts, activeAlerts],
   );
 
   return <ComplaintContext.Provider value={value}>{children}</ComplaintContext.Provider>;

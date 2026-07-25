@@ -328,4 +328,27 @@ export const apiService = {
       headers: authHeaders(),
       body: JSON.stringify({ completionDescription: description, completionPhotoUri: photoUri }),
     }),
+
+  getAlerts: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/alerts`, { headers: authHeaders() });
+  },
+
+  getActiveAlerts: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/alerts/active`, { headers: authHeaders() });
+  },
+
+  createAlert: (payload) =>
+    apiFetch(`${API_URL}/alerts`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    }),
+
+  resolveAlert: (id) =>
+    apiFetch(`${API_URL}/alerts/${id}/resolve`, {
+      method: 'POST',
+      headers: authHeaders(),
+    }),
 };

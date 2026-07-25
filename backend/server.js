@@ -387,6 +387,24 @@ async function initializeDatabase() {
       console.log("✓ Seeded default rooms");
     }
 
+    // Create alerts table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS alerts (
+        id VARCHAR(255) PRIMARY KEY,
+        created_by VARCHAR(255) NOT NULL,
+        created_by_role VARCHAR(50) NOT NULL,
+        severity VARCHAR(50) NOT NULL,
+        description TEXT NOT NULL,
+        floor VARCHAR(50) NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP,
+        resolved_by VARCHAR(255),
+        resolved_by_role VARCHAR(50)
+      )
+    `);
+    console.log("✓ alerts table ready");
+
     console.log("Database initialization complete!");
 
     // Seed/migrate manager and authority accounts with hashed passwords
@@ -2165,6 +2183,74 @@ app.delete("/api/rooms/:id", requireAuth, async (req, res) => {
   }
 });
 
+
+// ===== ALERTING ENDPOINTS =====
+
+app.get("/api/alerts", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM alerts ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Failed to fetch alerts:", err.message);
+    res.status(500).json({ error: "Failed to fetch alerts" });
+  }
+});
+
+app.get("/api/alerts/active", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM alerts WHERE is_active = TRUE ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Failed to fetch active alerts:", err.message);
+    res.status(500).json({ error: "Failed to fetch active alerts" });
+  }
+});
+
+app.post("/api/alerts", requireAuth, async (req, res) => {
+  try {
+    const { severity, description, floor } = req.body;
+    if (!severity || !description || !floor) {
+      return res.status(400).json({ error: "Missing required fields: severity, description, or floor" });
+    }
+    const alertId = `ALT-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    await pool.query(
+      "INSERT INTO alerts (id, created_by, created_by_role, severity, description, floor, is_active) VALUES ($1, $2, $3, $4, $5, $6, TRUE)",
+      [alertId, req.user.userId, req.user.role, severity, description, floor]
+    );
+    res.status(201).json({ message: "Alert started successfully", alertId });
+  } catch (err) {
+    console.error("Failed to create alert:", err.message);
+    res.status(500).json({ error: "Failed to create alert" });
+  }
+});
+
+app.post("/api/alerts/:id/resolve", requireAuth, async (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const alertQuery = await pool.query("SELECT * FROM alerts WHERE id = $1", [alertId]);
+    if (alertQuery.rows.length === 0) {
+      return res.status(404).json({ error: "Alert not found" });
+    }
+    const alert = alertQuery.rows[0];
+    
+    const isAuthority = req.user.role === "authority";
+    const isManager = req.user.role === "manager";
+    const isCreator = alert.created_by.toLowerCase() === req.user.userId.toLowerCase();
+
+    if (!isAuthority && !isManager && !isCreator) {
+      return res.status(403).json({ error: "Forbidden: Only managers, authorities, or the alert creator can resolve this alert" });
+    }
+
+    await pool.query(
+      "UPDATE alerts SET is_active = FALSE, resolved_at = CURRENT_TIMESTAMP, resolved_by = $1, resolved_by_role = $2 WHERE id = $3",
+      [req.user.userId, req.user.role, alertId]
+    );
+    res.json({ message: "Alert turned off successfully" });
+  } catch (err) {
+    console.error("Failed to resolve alert:", err.message);
+    res.status(500).json({ error: "Failed to resolve alert" });
+  }
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;

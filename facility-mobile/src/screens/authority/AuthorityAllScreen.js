@@ -5,7 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { formatRelativeTime } from '../../components/ComplaintCard';
 
 export const AuthorityAllScreen = () => {
-  const { complaints, mergedGroups, fetchComplaints, fetchMergedGroups, loading } = useComplaints();
+  const { complaints, mergedGroups, fetchComplaints, fetchMergedGroups, loading, alerts = [] } = useComplaints();
   const [activeTab, setActiveTab] = useState('pending'); // pending, ongoing, completed
   const [subCategory, setSubCategory] = useState('private'); // private, public, merged
 
@@ -220,7 +220,7 @@ export const AuthorityAllScreen = () => {
     );
   };
 
-  const isEmpty = subCategory === 'merged' ? !filteredMerged.length : !filteredThreads.length;
+  const isEmpty = subCategory === 'alerts' ? !alerts.length : (subCategory === 'merged' ? !filteredMerged.length : !filteredThreads.length);
 
   return (
     <View style={styles.flex}>
@@ -248,7 +248,7 @@ export const AuthorityAllScreen = () => {
 
       {/* Sub Toggles (Private / Public / Merged) */}
       <View style={styles.tabBar}>
-        {['private', 'public', 'merged'].map((sub) => {
+        {['private', 'public', 'merged', 'alerts'].map((sub) => {
           if (activeTab === 'pending' && sub === 'merged') return null;
           return (
             <TouchableOpacity
@@ -311,6 +311,32 @@ export const AuthorityAllScreen = () => {
             <Text style={styles.emptyTitle}>No Complaints Found</Text>
             <Text style={styles.emptySub}>No issues match the selected parameters.</Text>
           </View>
+        ) : subCategory === 'alerts' ? (
+          <FlatList
+            data={alerts}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item: alert }) => (
+              <View style={[styles.card, { borderColor: '#EF4444' }]}>
+                <View style={styles.cardHeader}>
+                  <View>
+                    <Text style={[styles.cardRoom, { color: '#EF4444' }]}>🚨 {alert.severity.toUpperCase()}</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 10 }}>{new Date(alert.created_at || alert.createdAt).toLocaleString()}</Text>
+                  </View>
+                  <Text style={[styles.statusBadge, { backgroundColor: alert.is_active ? '#EF4444' : '#475569' }]}>
+                    {alert.is_active ? 'ACTIVE' : 'RESOLVED'}
+                  </Text>
+                </View>
+                <Text style={[styles.descText, { marginTop: 6 }]}>{alert.description}</Text>
+                <Text style={styles.raisedByText}>Floor: {alert.floor} | By: {alert.created_by} ({alert.created_by_role})</Text>
+                {!alert.is_active && alert.resolved_by && (
+                  <Text style={[styles.raisedByText, { marginTop: 2, color: '#10B981' }]}>Resolved by: {alert.resolved_by} ({alert.resolved_by_role})</Text>
+                )}
+              </View>
+            )}
+            refreshControl={
+              <RefreshControl refreshing={loading} onRefresh={() => { fetchComplaints(); fetchMergedGroups(); }} tintColor="#6366F1" />
+            }
+          />
         ) : subCategory === 'merged' ? (
           <FlatList
             data={filteredMerged}
