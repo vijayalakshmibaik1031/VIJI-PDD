@@ -14,7 +14,7 @@ export const EmployeeRaiseScreen = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const categories = ['Electrical', 'Plumbing', 'Cleaning', 'Structural', 'Other'];
+  const categories = ['Electrical', 'Plumbing', 'HVAC', 'Furniture', 'Cleaning', 'Structural', 'IT / Network', 'Other'];
 
   useEffect(() => {
     fetchRooms();

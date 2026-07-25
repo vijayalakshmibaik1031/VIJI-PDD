@@ -6,7 +6,7 @@ export const STORAGE_KEYS = {
   rejectionCounts: 'fd_rejection_counts',
 };
 
-export const CATEGORIES = ['Electrical', 'Plumbing', 'Cleaning', 'Structural', 'Other'];
+export const CATEGORIES = ['Electrical', 'Plumbing', 'HVAC', 'Furniture', 'Cleaning', 'Structural', 'IT / Network', 'Other'];
 export const VISIBILITY = { private: 'private', public: 'public' };
 export const STATUS = {
   pending: 'pending',
