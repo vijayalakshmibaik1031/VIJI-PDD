@@ -596,7 +596,7 @@ app.post("/api/employees/login", async (req, res) => {
 
 app.get("/api/employees", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, COALESCE(plain_password, 'Welcome123$') AS password, created_at FROM employees ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, COALESCE(plain_password, password) AS password, created_at FROM employees ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -892,7 +892,7 @@ app.post("/api/managers/login", async (req, res) => {
 
 app.get("/api/managers", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, COALESCE(plain_password, 'Welcome123$') AS password, created_at FROM managers ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, COALESCE(plain_password, password) AS password, created_at FROM managers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
