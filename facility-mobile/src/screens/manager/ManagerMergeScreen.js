@@ -52,8 +52,7 @@ export const ManagerMergeScreen = () => {
     });
 
     return Object.values(grouped).filter((group) => {
-      const uniqueEmps = new Set(group.complaints.map((c) => c.employee_id || c.employeeId));
-      return group.complaints.length >= 5 && uniqueEmps.size >= 5;
+      return group.complaints.length >= 5;
     });
   }, [complaints]);
 

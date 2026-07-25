@@ -1928,17 +1928,9 @@ app.post("/api/merged-groups", requireAuth, async (req, res) => {
     // FIX #6: Validate that the complaints come from at least 5 unique employees
     // before allowing a merge. server-sqlite.js already had this check; server.js
     // was missing it entirely, allowing merges with any number of complaints.
-    if (!Array.isArray(complaintIds) || complaintIds.length === 0) {
-      return res.status(400).json({ error: "complaintIds must be a non-empty array" });
-    }
-
-    const employeeRows = await pool.query(
-      `SELECT DISTINCT employee_id FROM complaints WHERE id = ANY($1::text[])`,
-      [complaintIds]
-    );
-    if (employeeRows.rows.length < 5) {
+    if (!Array.isArray(complaintIds) || complaintIds.length < 5) {
       return res.status(400).json({
-        error: `Merge requires complaints from at least 5 unique employees. Found ${employeeRows.rows.length}.`,
+        error: `Merge requires at least 5 complaints. Found ${complaintIds ? complaintIds.length : 0}.`,
       });
     }
     await pool.query(

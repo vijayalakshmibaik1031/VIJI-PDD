@@ -409,7 +409,7 @@ export function ComplaintProvider({ children }) {
       acc[key].complaints.push(complaint);
       return acc;
     }, {})
-  ).filter((group) => new Set(group.complaints.map((complaint) => complaint.employeeId)).size >= 5);
+  ).filter((group) => group.complaints.length >= 5);
 
   const raiseComplaintToPublic = async (id) => {
     try {
