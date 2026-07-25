@@ -1316,6 +1316,40 @@ app.delete("/api/employees/:id", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/users/:id/reset-password (Authority only)
+app.post("/api/users/:id/reset-password", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!role || (role !== "employee" && role !== "manager")) {
+      return res.status(400).json({ error: "Invalid role specified" });
+    }
+    const table = role === "employee" ? "employees" : "managers";
+    const defaultPassword = "Welcome123$";
+    const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
+
+    const result = await pool.query(
+      `UPDATE ${table} SET password = $1, plain_password = $2, needs_password_reset = TRUE WHERE id = $3 RETURNING *`,
+      [hashedPassword, defaultPassword, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Clean up active sessions so they must re-authenticate
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [id]).catch(() => {});
+
+    res.json({ message: `Password reset to ${defaultPassword} successfully` });
+  } catch (err) {
+    console.error("Reset user password error:", err.message);
+    res.status(500).json({ error: "Failed to reset password", details: err.message });
+  }
+});
+
 // ===== AUTHORITY ENDPOINTS =====
 app.post("/api/authorities/register", async (req, res) => {
   try {

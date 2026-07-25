@@ -109,6 +109,23 @@ export default function AuthorityUsers() {
     }
   };
 
+  const handleResetPasswordClick = async () => {
+    if (!window.confirm("Are you sure you want to reset this user's password back to 'Welcome123$'?")) {
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      await apiService.resetUserPassword(editingUserId, modalType);
+      setSuccess("Password reset to Welcome123$ successfully!");
+      fetchUsers(true);
+      setShowEditModal(false);
+      resetForm();
+    } catch (err) {
+      setError(err.message || 'Password reset failed.');
+    }
+  };
+
   const handleDeleteClick = async () => {
     if (!window.confirm(`Are you sure you want to delete this ${modalType === 'manager' ? 'manager' : 'employee'}? This action cannot be undone.`)) {
       return;
@@ -455,14 +472,23 @@ export default function AuthorityUsers() {
                 />
               </div>
 
-              <div className="flex justify-between pt-4">
-                <button
-                  type="button"
-                  onClick={handleDeleteClick}
-                  className="rounded-xl bg-rose-600/90 hover:bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition duration-200"
-                >
-                  Delete
-                </button>
+              <div className="flex justify-between pt-4 gap-2 flex-wrap">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    className="rounded-xl bg-rose-600/90 hover:bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition duration-200"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetPasswordClick}
+                    className="rounded-xl bg-amber-600 hover:bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition duration-200"
+                  >
+                    Reset Password
+                  </button>
+                </div>
                 <div className="flex gap-3">
                   <button
                     type="button"

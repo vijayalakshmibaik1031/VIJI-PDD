@@ -309,6 +309,13 @@ export const apiService = {
       headers: authHeaders(),
     }),
 
+  resetUserPassword: (id, role) =>
+    apiFetch(`${API_URL}/users/${id}/reset-password`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ role }),
+    }),
+
   raiseComplaintToPublic: (id) =>
     apiFetch(`${API_URL}/complaints/${id}/raise-to-public`, {
       method: 'PATCH',
