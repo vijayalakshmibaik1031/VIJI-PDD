@@ -485,6 +485,19 @@ export const ComplaintProvider = ({ children }) => {
     }
   };
 
+  const resetUserPassword = async (id, role) => {
+    try {
+      const data = await apiCall(`/users/${id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ role }),
+      }, token);
+      await refreshAll();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   return (
     <ComplaintContext.Provider
       value={{
@@ -534,6 +547,7 @@ export const ComplaintProvider = ({ children }) => {
         resolveAlert,
         fetchAlerts,
         fetchActiveAlerts,
+        resetUserPassword,
       }}
     >
       {children}

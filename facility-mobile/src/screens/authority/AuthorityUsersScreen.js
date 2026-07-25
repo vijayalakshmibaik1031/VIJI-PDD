@@ -26,13 +26,44 @@ export const AuthorityUsersScreen = () => {
     updateEmployee,
     deleteEmployee,
     loading,
+    resetUserPassword,
   } = useComplaints();
 
   const [activeTab, setActiveTab] = useState('managers');
   const [modalVisible, setModalVisible] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
 
   const [editingUser, setEditingUser] = useState(null);
   const [userName, setUserName] = useState('');
+
+  const togglePasswordVisibility = (id) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleResetPassword = () => {
+    if (!editingUser) return;
+    Alert.alert('Confirm Reset', `Reset password of "${editingUser.name}" to "Welcome123$"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset',
+        onPress: async () => {
+          setSubmitting(true);
+          try {
+            await resetUserPassword(editingUser.id, activeTab === 'managers' ? 'manager' : 'employee');
+            Alert.alert('Success', 'Password reset to Welcome123$ successfully!');
+            setModalVisible(false);
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Reset failed');
+          } finally {
+            setSubmitting(false);
+          }
+        }
+      }
+    ]);
+  };
   const [userEmail, setUserEmail] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -172,10 +203,27 @@ export const AuthorityUsersScreen = () => {
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <View style={styles.userCard}>
-              <View style={styles.userInfo}>
+              <View style={[styles.userInfo, { gap: 4 }]}>
                 <Text style={styles.userName}>{item.name}</Text>
                 <Text style={styles.userId}>ID: #{item.id}</Text>
                 <Text style={styles.userEmail}>📧 {item.email || 'No email registered'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 12 }}>🔑 Password: </Text>
+                  <Text style={{
+                    color: '#F8FAFC',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    textDecorationLine: visiblePasswords[item.id] ? 'none' : 'line-through',
+                    backgroundColor: visiblePasswords[item.id] ? 'transparent' : '#334155',
+                    paddingHorizontal: visiblePasswords[item.id] ? 0 : 6,
+                    borderRadius: 4
+                  }}>
+                    {visiblePasswords[item.id] ? (item.password || 'Welcome123$') : '••••••••'}
+                  </Text>
+                  <TouchableOpacity onPress={() => togglePasswordVisibility(item.id)}>
+                    <Text style={{ fontSize: 13, color: '#818CF8' }}>{visiblePasswords[item.id] ? ' Hide' : ' Show'}</Text>
+                  </TouchableOpacity>
+                </View>
                 {activeTab === 'managers' && (
                   <View style={styles.floorBadge}>
                     <Text style={styles.floorBadgeText}>🏢 Managed Floor: {formatFloorName(item.floor_number)}</Text>
@@ -251,12 +299,17 @@ export const AuthorityUsersScreen = () => {
               </View>
             )}
 
-            <View style={styles.modalActions}>
+            <View style={[styles.modalActions, { flexWrap: 'wrap', gap: 8 }]}>
+              {editingUser && (
+                <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: '#D97706' }]} onPress={handleResetPassword} disabled={submitting}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Reset Password</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={submitting}>
-                <Text style={styles.saveText}>{submitting ? 'Saving...' : 'Save Employee'}</Text>
+                <Text style={styles.saveText}>{submitting ? 'Saving...' : (editingUser ? 'Save Changes' : 'Save Employee')}</Text>
               </TouchableOpacity>
             </View>
           </View>
