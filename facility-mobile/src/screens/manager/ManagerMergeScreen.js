@@ -71,8 +71,20 @@ export const ManagerMergeScreen = () => {
   }, [complaints]);
 
   const getEmployeeName = (empId) => {
-    const emp = employees.find((e) => String(e.id).toLowerCase() === String(empId).toLowerCase());
-    return emp ? emp.name : empId;
+    const id = typeof empId === 'object' ? empId?.employeeId : empId;
+    const emp = employees.find((e) => String(e.id).toLowerCase() === String(id).toLowerCase());
+    return emp ? emp.name : id;
+  };
+
+  const getEndorsementDetails = (e) => {
+    if (!e) return { id: '', name: '' };
+    if (typeof e === 'object') {
+      const id = e.employeeId || '';
+      const name = e.employeeName || getEmployeeName(id);
+      return { id, name };
+    }
+    const id = String(e);
+    return { id, name: getEmployeeName(id) };
   };
 
   const handleConfirmMerge = async () => {
@@ -380,13 +392,16 @@ export const ManagerMergeScreen = () => {
 
             {activeEndorsedDetails?.list && activeEndorsedDetails.list.length > 0 ? (
               <ScrollView style={{ maxHeight: 200, marginVertical: 12 }}>
-                {activeEndorsedDetails.list.map((empId) => (
-                  <View key={empId} style={styles.endorsedRow}>
-                    <Text style={styles.endorsedText}>
-                      👤 {getEmployeeName(empId)} ({empId})
-                    </Text>
-                  </View>
-                ))}
+                {activeEndorsedDetails.list.map((e, index) => {
+                  const details = getEndorsementDetails(e);
+                  return (
+                    <View key={details.id || index} style={styles.endorsedRow}>
+                      <Text style={styles.endorsedText}>
+                        👤 {details.name}{details.id && details.id !== details.name ? ` (${details.id})` : ''}
+                      </Text>
+                    </View>
+                  );
+                })}
               </ScrollView>
             ) : (
               <Text style={styles.emptySubModal}>No endorsements yet.</Text>

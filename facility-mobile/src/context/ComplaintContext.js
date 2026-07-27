@@ -398,16 +398,26 @@ export const ComplaintProvider = ({ children }) => {
     }
   };
 
-  const createFloorManager = async (name, email) => {
+  const createFloorManager = async (name, email, numRooms) => {
     try {
       const data = await apiCall('/managers/floor-manager', {
         method: 'POST',
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, numRooms }),
       }, token);
       await fetchManagers();
       return data;
     } catch (err) {
       throw err;
+    }
+  };
+
+  const fetchFloorManagerHistory = async () => {
+    try {
+      const data = await apiCall('/floor-manager-history', { method: 'GET' }, token);
+      return data;
+    } catch (err) {
+      console.error('Failed to load history', err);
+      return [];
     }
   };
 
@@ -537,6 +547,7 @@ export const ComplaintProvider = ({ children }) => {
         deleteEmployee,
         createManager,
         createFloorManager,
+        fetchFloorManagerHistory,
         updateManager,
         deleteManager,
         resetFirstPassword,

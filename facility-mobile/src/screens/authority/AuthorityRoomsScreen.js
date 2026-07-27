@@ -15,14 +15,16 @@ function formatFloorName(floorNum) {
 }
 
 export const AuthorityRoomsScreen = () => {
-  const { rooms, managers, fetchRooms, fetchManagers, createRoom, updateRoom, deleteRoom, createFloorManager, loading } = useComplaints();
+  const { rooms, managers, fetchRooms, fetchManagers, createRoom, updateRoom, deleteRoom, createFloorManager, fetchFloorManagerHistory, loading } = useComplaints();
 
   const [newRoomNumber, setNewRoomNumber] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
   const [showAddFloorInput, setShowAddFloorInput] = useState(false);
   const [mgrName, setMgrName] = useState('');
   const [mgrEmail, setMgrEmail] = useState('');
+  const [numRooms, setNumRooms] = useState('5');
   const [creatingFloorManager, setCreatingFloorManager] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const [editingId, setEditingId] = useState(null);
   const [editingNumber, setEditingNumber] = useState('');
@@ -30,9 +32,17 @@ export const AuthorityRoomsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const loadHistory = async () => {
+    if (fetchFloorManagerHistory) {
+      const data = await fetchFloorManagerHistory();
+      setHistory(data || []);
+    }
+  };
+
   useEffect(() => {
     fetchRooms();
     if (fetchManagers) fetchManagers();
+    loadHistory();
   }, [fetchRooms, fetchManagers]);
 
   // Compute unique floors list strictly from assigned floor managers
@@ -75,15 +85,22 @@ export const AuthorityRoomsScreen = () => {
       Alert.alert('Validation Error', 'Email must end with @xyzcompany.com');
       return;
     }
+    const val = parseInt(numRooms, 10);
+    if (isNaN(val) || val < 1 || val > 20) {
+      Alert.alert('Validation Error', 'Number of rooms must be between 1 and 20');
+      return;
+    }
 
     setCreatingFloorManager(true);
     try {
-      const res = await createFloorManager(mgrName.trim(), mgrEmail.trim().toLowerCase());
-      Alert.alert('Success', `Floor ${formatFloorName(res.floorNumber)} created! Assigned Manager ID: ${res.managerId}`);
+      const res = await createFloorManager(mgrName.trim(), mgrEmail.trim().toLowerCase(), val);
+      Alert.alert('Success', `Floor ${formatFloorName(res.floorNumber)} created with ${val} rooms! Assigned Manager ID: ${res.managerId}`);
       setSelectedFloor(String(res.floorNumber));
       setMgrName('');
       setMgrEmail('');
+      setNumRooms('5');
       setShowAddFloorInput(false);
+      loadHistory();
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to create floor manager');
     } finally {
@@ -108,6 +125,16 @@ export const AuthorityRoomsScreen = () => {
     if (duplicate) {
       Alert.alert('Duplicate Room', 'Room number already exists in system.');
       return;
+    }
+
+    // Find the floor manager's room limit
+    const mgr = (managers || []).find(m => String(m.floor_number) === String(selectedFloor));
+    if (mgr && mgr.room_limit > 0) {
+      const currentRoomsOnFloor = rooms.filter(r => String(r.floor_number) === String(selectedFloor)).length;
+      if (currentRoomsOnFloor >= mgr.room_limit) {
+        Alert.alert('Limit Reached', `Cannot create room: Limit of ${mgr.room_limit} rooms reached for this floor.`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -240,6 +267,15 @@ export const AuthorityRoomsScreen = () => {
                 autoCapitalize="none"
               />
 
+              <TextInput
+                style={styles.input}
+                placeholder="Number of Rooms (Max: 20) *"
+                placeholderTextColor="#64748B"
+                value={numRooms}
+                onChangeText={setNumRooms}
+                keyboardType="numeric"
+              />
+
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
                   ℹ️ Manager ID will be auto-generated starting with <Text style={styles.codeText}>man[8 digits]</Text>. Default password is <Text style={styles.codeText}>Welcome123$</Text>.
@@ -247,7 +283,7 @@ export const AuthorityRoomsScreen = () => {
               </View>
 
               <View style={styles.rowRight}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddFloorInput(false)}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowAddFloorInput(false); setNumRooms('5'); }}>
                   <Text style={styles.btnText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -295,64 +331,139 @@ export const AuthorityRoomsScreen = () => {
           />
         </View>
 
-        {filteredRooms.map((room) => {
-          const isEditing = editingId === room.id;
-          return (
-            <View key={room.id} style={styles.roomCard}>
-              {isEditing ? (
-                <View style={{ flex: 1, gap: 8 }}>
-                  <TextInput
-                    style={styles.input}
-                    value={editingNumber}
-                    onChangeText={setEditingNumber}
-                    placeholder="Room Number"
-                    placeholderTextColor="#64748B"
-                  />
-                  <View style={styles.row}>
-                    <Text style={styles.label}>Floor: </Text>
-                    <TextInput
-                      style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                      value={editingFloor}
-                      onChangeText={setEditingFloor}
-                      placeholder="Floor"
-                      placeholderTextColor="#64748B"
-                    />
-                  </View>
-                  <View style={styles.rowRight}>
-                    <TouchableOpacity style={styles.saveBtn} onPress={() => handleSaveEdit(room.id)}>
-                      <Text style={styles.btnText}>Save</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingId(null)}>
-                      <Text style={styles.btnText}>Cancel</Text>
-                    </TouchableOpacity>
+        {(() => {
+          // Sort unique floors ascending
+          const uniqueFloors = Array.from(new Set(xe.map(r => String(r.floor_number)))).sort((a, b) => {
+            const numA = parseInt(a, 10);
+            const numB = parseInt(b, 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.localeCompare(b);
+          });
+
+          return uniqueFloors.map(floorNum => {
+            const floorRooms = xe
+              .filter(r => String(r.floor_number) === String(floorNum))
+              .sort((a, b) => (a.id || 0) - (b.id || 0)); // created order (id ASC)
+
+            const mgr = (managers || []).find(m => String(m.floor_number) === String(floorNum));
+
+            return (
+              <View key={floorNum} style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
+                  <Text style={{ color: '#818CF8', fontSize: 13, fontWeight: '800' }}>
+                    🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 11 }}>{floorRooms.length} rooms</Text>
+                </View>
+
+                {floorRooms.map((room) => {
+                  const isEditing = editingId === room.id;
+                  return (
+                    <View key={room.id} style={styles.roomCard}>
+                      {isEditing ? (
+                        <View style={{ flex: 1, gap: 8 }}>
+                          <TextInput
+                            style={styles.input}
+                            value={editingNumber}
+                            onChangeText={setEditingNumber}
+                            placeholder="Room Number"
+                            placeholderTextColor="#64748B"
+                          />
+                          <View style={styles.row}>
+                            <Text style={styles.label}>Floor: </Text>
+                            <TextInput
+                              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                              value={editingFloor}
+                              onChangeText={setEditingFloor}
+                              placeholder="Floor"
+                              placeholderTextColor="#64748B"
+                            />
+                          </View>
+                          <View style={styles.rowRight}>
+                            <TouchableOpacity style={styles.saveBtn} onPress={() => handleSaveEdit(room.id)}>
+                              <Text style={styles.btnText}>Save</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingId(null)}>
+                              <Text style={styles.btnText}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : (
+                        <>
+                          <View style={styles.roomInfo}>
+                            <Text style={styles.roomTitle}>📍 Room {room.room_number}</Text>
+                            <Text style={styles.floorText}>ID: {room.id} | {new Date(room.created_at || room.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                          </View>
+                          <View style={styles.roomActions}>
+                            <TouchableOpacity
+                              style={styles.editBtn}
+                              onPress={() => {
+                                setEditingId(room.id);
+                                setEditingNumber(String(room.room_number));
+                                setEditingFloor(String(room.floor_number || '0'));
+                              }}
+                            >
+                              <Text style={styles.btnText}>Edit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.deleteBtn} onPress={() => he(room)}>
+                              <Text style={styles.btnText}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          });
+        })()}
+
+        {/* Floor Manager & Room History Section */}
+        <Text style={styles.historyTitle}>📋 Floor Manager & Room History</Text>
+        {history.length === 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.noFloorText}>No floor history recorded yet.</Text>
+          </View>
+        ) : (
+          history.map((item) => {
+            const roomsList = Array.isArray(item.rooms_details) ? item.rooms_details : JSON.parse(item.rooms_details || '[]');
+            return (
+              <View key={item.id} style={styles.historyCard}>
+                <View style={styles.historyHeader}>
+                  <Text style={{ color: '#F8FAFC', fontSize: 13, fontWeight: '800' }}>
+                    Floor {item.floor_number} ({formatFloorName(item.floor_number)})
+                  </Text>
+                  <View style={[styles.historyActionPill, { backgroundColor: item.action === 'created' ? '#064E3B' : '#7F1D1D', borderColor: item.action === 'created' ? '#065F46' : '#991B1B', borderWidth: 1 }]}>
+                    <Text style={styles.actionText}>{item.action.toUpperCase()}</Text>
                   </View>
                 </View>
-              ) : (
-                <>
-                  <View style={styles.roomInfo}>
-                    <Text style={styles.roomTitle}>📍 Room {room.room_number}</Text>
-                    <Text style={styles.floorText}>Floor Level: {formatFloorName(room.floor_number)}</Text>
-                  </View>
-                  <View style={styles.roomActions}>
-                    <TouchableOpacity
-                      style={styles.editBtn}
-                      onPress={() => {
-                        setEditingId(room.id);
-                        setEditingNumber(String(room.room_number));
-                        setEditingFloor(String(room.floor_number || '0'));
-                      }}
-                    >
-                      <Text style={styles.btnText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(room)}>
-                      <Text style={styles.btnText}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
-          );
-        })}
+
+                <Text style={styles.historyMeta}>
+                  Manager: <Text style={{ color: '#E2E8F0', fontWeight: '600' }}>{item.manager_name}</Text> ({item.manager_email})
+                </Text>
+                <Text style={styles.historyTime}>
+                  Time: {new Date(item.created_at).toLocaleString()}
+                </Text>
+
+                <View style={styles.historyRoomsBox}>
+                  <Text style={styles.historyRoomsTitle}>Rooms Allocated ({roomsList.length}):</Text>
+                  {roomsList.length > 0 ? (
+                    <View style={styles.historyRoomsList}>
+                      {roomsList.map((rm, idx) => (
+                        <View key={idx} style={styles.historyRoomBadge}>
+                          <Text style={styles.historyRoomText}>{rm}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={{ color: '#64748B', fontSize: 10, fontStyle: 'italic' }}>None</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );
@@ -404,4 +515,17 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#10B981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   cancelBtn: { backgroundColor: '#334155', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   btnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  // History elements
+  historyTitle: { color: '#F8FAFC', fontSize: 15, fontWeight: '800', marginTop: 24, marginBottom: 12 },
+  historyCard: { backgroundColor: '#1E293B', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#334155' },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  historyActionPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+  actionText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  historyMeta: { color: '#94A3B8', fontSize: 11, marginTop: 4 },
+  historyTime: { color: '#64748B', fontSize: 9, marginTop: 2 },
+  historyRoomsBox: { backgroundColor: '#0F172A', borderWidth: 1, borderColor: '#334155', borderRadius: 8, padding: 8, marginTop: 8 },
+  historyRoomsTitle: { color: '#94A3B8', fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  historyRoomsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  historyRoomBadge: { backgroundColor: '#334155', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  historyRoomText: { color: '#E2E8F0', fontSize: 10 },
 });

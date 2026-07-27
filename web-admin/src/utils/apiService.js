@@ -257,6 +257,11 @@ export const apiService = {
     return apiFetch(`${API_URL}/managers`, { headers: authHeaders() });
   },
 
+  getFloorManagerHistory: () => {
+    if (!getToken()) return Promise.resolve([]);
+    return apiFetch(`${API_URL}/floor-manager-history`, { headers: authHeaders() });
+  },
+
   createManager: (id, name, email) =>
     apiFetch(`${API_URL}/managers`, {
       method: 'POST',
@@ -264,11 +269,11 @@ export const apiService = {
       body: JSON.stringify({ id, name, email }),
     }),
 
-  createFloorManager: (name, email) =>
+  createFloorManager: (name, email, numRooms) =>
     apiFetch(`${API_URL}/managers/floor-manager`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify({ name, email, numRooms }),
     }),
 
   updateManager: (id, name, email) =>

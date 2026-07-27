@@ -16,7 +16,21 @@ export default function ManagerMerge() {
   const [individualEscalationNote, setIndividualEscalationNote] = useState('');
   const [isMerging, setIsMerging] = useState(false);
 
-  const getEmployeeName = (employeeId) => complaints.find((item) => item.employeeId === employeeId)?.employeeName || employeeId;
+  const getEmployeeName = (employeeId) => {
+    const id = typeof employeeId === 'object' ? employeeId?.employeeId : employeeId;
+    return complaints.find((item) => item.employeeId === id)?.employeeName || id;
+  };
+
+  const getEndorsementDetails = (e) => {
+    if (!e) return { id: '', name: '' };
+    if (typeof e === 'object') {
+      const id = e.employeeId || '';
+      const name = e.employeeName || getEmployeeName(id);
+      return { id, name };
+    }
+    const id = String(e);
+    return { id, name: getEmployeeName(id) };
+  };
 
   const confirmMerge = async () => {
     if (!activeMergeGroup || !mergeDescription.trim()) return;
@@ -180,11 +194,14 @@ export default function ManagerMerge() {
             <p className="mb-2 text-sm font-medium text-slate-800">Endorsed Employee Details</p>
             {activeEndorseGroup.endorsedBy.length ? (
               <ul className="space-y-2 text-sm text-slate-700">
-                {activeEndorseGroup.endorsedBy.map((employeeId) => (
-                  <li key={employeeId} className="rounded border bg-slate-50 px-3 py-2">
-                     {getEmployeeName(employeeId)}{employeeId ? ` (${employeeId})` : ''}
-                  </li>
-                ))}
+                {activeEndorseGroup.endorsedBy.map((e, index) => {
+                  const details = getEndorsementDetails(e);
+                  return (
+                    <li key={details.id || index} className="rounded border bg-slate-50 px-3 py-2">
+                       {details.name}{details.id && details.id !== details.name ? ` (${details.id})` : ''}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-sm text-slate-600">No endorsements yet.</p>
@@ -202,11 +219,14 @@ export default function ManagerMerge() {
             <p className="mb-2 text-sm font-medium text-slate-800">Endorsed Employee Details</p>
             {activeEndorseComplaint.endorsedBy.length ? (
               <ul className="space-y-2 text-sm text-slate-700">
-                {activeEndorseComplaint.endorsedBy.map((employeeId) => (
-                  <li key={employeeId} className="rounded border bg-slate-50 px-3 py-2">
-                     {getEmployeeName(employeeId)}{employeeId ? ` (${employeeId})` : ''}
-                  </li>
-                ))}
+                {activeEndorseComplaint.endorsedBy.map((e, index) => {
+                  const details = getEndorsementDetails(e);
+                  return (
+                    <li key={details.id || index} className="rounded border bg-slate-50 px-3 py-2">
+                       {details.name}{details.id && details.id !== details.name ? ` (${details.id})` : ''}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-sm text-slate-600">No endorsements yet.</p>

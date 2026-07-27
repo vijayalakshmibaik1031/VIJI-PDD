@@ -240,6 +240,7 @@ async function initializeDatabase() {
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS needs_password_reset BOOLEAN DEFAULT TRUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) UNIQUE").catch(() => {});
     await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255)").catch(() => {});
+    await pool.query("ALTER TABLE managers ADD COLUMN IF NOT EXISTS room_limit INT DEFAULT 0").catch(() => {});
     await pool.query("UPDATE managers SET plain_password = password WHERE plain_password IS NULL AND password NOT LIKE '$2%'").catch(() => {});
     console.log("✓ managers table ready");
 
@@ -414,6 +415,20 @@ async function initializeDatabase() {
       )
     `);
     console.log("✓ alerts table ready");
+
+    // Create floor_manager_history table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS floor_manager_history (
+        id SERIAL PRIMARY KEY,
+        floor_number VARCHAR(50) NOT NULL,
+        manager_name VARCHAR(255) NOT NULL,
+        manager_email VARCHAR(255) NOT NULL,
+        rooms_details JSONB DEFAULT '[]',
+        action VARCHAR(20) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✓ floor_manager_history table ready");
 
     console.log("Database initialization complete!");
 
@@ -892,11 +907,24 @@ app.post("/api/managers/login", async (req, res) => {
 
 app.get("/api/managers", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, email, floor_number, needs_password_reset, COALESCE(plain_password, password) AS password, created_at FROM managers ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id, name, email, floor_number, room_limit, needs_password_reset, COALESCE(plain_password, password) AS password, created_at FROM managers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch managers" });
+  }
+});
+
+app.get("/api/floor-manager-history", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+    const result = await pool.query("SELECT * FROM floor_manager_history ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch floor manager history" });
   }
 });
 
@@ -907,9 +935,17 @@ app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Forbidden: Authority role required" });
     }
 
-    const { name, email } = req.body;
+    const { name, email, numRooms } = req.body;
     if (!name || !email) {
       return res.status(400).json({ error: "Missing required fields: name, email" });
+    }
+
+    let roomsToCreate = 0;
+    if (numRooms !== undefined && numRooms !== null && numRooms !== '') {
+      roomsToCreate = parseInt(numRooms, 10);
+      if (isNaN(roomsToCreate) || roomsToCreate < 1 || roomsToCreate > 20) {
+        return res.status(400).json({ error: "Number of rooms must be between 1 and 20" });
+      }
     }
 
     const normalizedName = name.trim();
@@ -964,8 +1000,27 @@ app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(defaultPassword, BCRYPT_ROUNDS);
 
     await pool.query(
-      "INSERT INTO managers (id, name, email, password, plain_password, needs_password_reset, floor_number) VALUES ($1, $2, $3, $4, $5, TRUE, $6)",
-      [managerId, normalizedName, normalizedEmail, hashedPassword, defaultPassword, nextFloorStr]
+      "INSERT INTO managers (id, name, email, password, plain_password, needs_password_reset, floor_number, room_limit) VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7)",
+      [managerId, normalizedName, normalizedEmail, hashedPassword, defaultPassword, nextFloorStr, roomsToCreate]
+    );
+
+    // Auto-create rooms
+    const createdRooms = [];
+    if (roomsToCreate > 0) {
+      for (let i = 1; i <= roomsToCreate; i++) {
+        const roomNum = `${nextFloorStr}${String(i).padStart(2, '0')}`;
+        await pool.query(
+          "INSERT INTO rooms (room_number, floor_number) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          [roomNum, nextFloorStr]
+        );
+        createdRooms.push(roomNum);
+      }
+    }
+
+    // Insert history record
+    await pool.query(
+      "INSERT INTO floor_manager_history (floor_number, manager_name, manager_email, rooms_details, action) VALUES ($1, $2, $3, $4, 'created')",
+      [nextFloorStr, normalizedName, normalizedEmail, JSON.stringify(createdRooms)]
     );
 
     res.status(201).json({
@@ -1276,10 +1331,31 @@ app.delete("/api/managers/:id", requireAuth, async (req, res) => {
     }
 
     const managerId = req.params.id;
-    const result = await pool.query("DELETE FROM managers WHERE id = $1 RETURNING *", [managerId]);
-
-    if (result.rows.length === 0) {
+    // Get the manager details first
+    const mgrRes = await pool.query("SELECT * FROM managers WHERE id = $1", [managerId]);
+    if (mgrRes.rows.length === 0) {
       return res.status(404).json({ error: "Manager not found" });
+    }
+    const manager = mgrRes.rows[0];
+
+    // Get rooms associated with this floor
+    let roomNumbers = [];
+    if (manager.floor_number !== null && manager.floor_number !== undefined) {
+      const roomsRes = await pool.query("SELECT room_number FROM rooms WHERE floor_number = $1", [manager.floor_number]);
+      roomNumbers = roomsRes.rows.map(r => r.room_number);
+    }
+
+    // Delete the manager
+    await pool.query("DELETE FROM managers WHERE id = $1", [managerId]);
+
+    // Insert history record
+    if (manager.floor_number !== null && manager.floor_number !== undefined) {
+      await pool.query(
+        "INSERT INTO floor_manager_history (floor_number, manager_name, manager_email, rooms_details, action) VALUES ($1, $2, $3, $4, 'deleted')",
+        [manager.floor_number, manager.name, manager.email, JSON.stringify(roomNumbers)]
+      );
+      // Delete corresponding rooms
+      await pool.query("DELETE FROM rooms WHERE floor_number = $1", [manager.floor_number]);
     }
 
     // Also clean up any active sessions for this manager
@@ -1957,9 +2033,20 @@ app.post("/api/merged-groups", requireAuth, async (req, res) => {
 app.get("/api/merged-groups", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT m.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+      `SELECT m.*, 
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'employeeId', e.employee_id,
+                    'employeeName', emp.name,
+                    'endorsedAt', e.endorsed_at
+                  ) ORDER BY e.endorsed_at
+                ) FILTER (WHERE e.employee_id IS NOT NULL), 
+                '[]'
+              ) AS endorsed_by
        FROM merged_groups m
        LEFT JOIN merged_group_endorsements e ON e.merged_group_id = m.id
+       LEFT JOIN employees emp ON emp.id = e.employee_id
        GROUP BY m.id
        ORDER BY m.created_at DESC`
     );
@@ -1974,9 +2061,20 @@ app.get("/api/merged-groups/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT m.*, COALESCE(jsonb_agg(e.employee_id ORDER BY e.employee_id) FILTER (WHERE e.employee_id IS NOT NULL), '[]') AS endorsed_by
+      `SELECT m.*, 
+              COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'employeeId', e.employee_id,
+                    'employeeName', emp.name,
+                    'endorsedAt', e.endorsed_at
+                  ) ORDER BY e.endorsed_at
+                ) FILTER (WHERE e.employee_id IS NOT NULL), 
+                '[]'
+              ) AS endorsed_by
        FROM merged_groups m
        LEFT JOIN merged_group_endorsements e ON e.merged_group_id = m.id
+       LEFT JOIN employees emp ON emp.id = e.employee_id
        WHERE m.id = $1
        GROUP BY m.id`,
       [id]
@@ -2019,10 +2117,18 @@ app.post("/api/merged-groups/:id/endorse", requireAuth, async (req, res) => {
     }
 
     const endorsementsResult = await pool.query(
-      "SELECT employee_id FROM merged_group_endorsements WHERE merged_group_id = $1 ORDER BY employee_id",
+      `SELECT e.employee_id, emp.name AS employee_name, e.endorsed_at
+       FROM merged_group_endorsements e
+       LEFT JOIN employees emp ON emp.id = e.employee_id
+       WHERE e.merged_group_id = $1
+       ORDER BY e.endorsed_at`,
       [id],
     );
-    const endorsedBy = endorsementsResult.rows.map((row) => row.employee_id);
+    const endorsedBy = endorsementsResult.rows.map((row) => ({
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      endorsedAt: row.endorsed_at
+    }));
 
     await pool.query(
       "UPDATE merged_groups SET endorsed_by = $1 WHERE id = $2",
@@ -2145,13 +2251,25 @@ app.post("/api/rooms", requireAuth, async (req, res) => {
     const normalizedRoom = roomNumber.trim();
     const normalizedFloor = String(floorNumber).trim();
 
-    // Verify floor manager exists for this floor
+    // Verify floor manager exists for this floor and get room_limit
     const floorCheck = await pool.query(
-      "SELECT 1 FROM managers WHERE floor_number = $1",
+      "SELECT room_limit FROM managers WHERE floor_number = $1",
       [normalizedFloor]
     );
     if (floorCheck.rows.length === 0) {
       return res.status(400).json({ error: "Cannot create room: No Floor Manager exists for this floor. Please create the floor with a Floor Manager first." });
+    }
+
+    const roomLimit = floorCheck.rows[0].room_limit || 0;
+    if (roomLimit > 0) {
+      const countCheck = await pool.query(
+        "SELECT COUNT(*) FROM rooms WHERE floor_number = $1",
+        [normalizedFloor]
+      );
+      const currentCount = parseInt(countCheck.rows[0].count, 10);
+      if (currentCount >= roomLimit) {
+        return res.status(400).json({ error: `Cannot create room: Limit of ${roomLimit} rooms reached for this floor.` });
+      }
     }
 
     const existing = await pool.query("SELECT 1 FROM rooms WHERE LOWER(room_number) = LOWER($1)", [normalizedRoom]);

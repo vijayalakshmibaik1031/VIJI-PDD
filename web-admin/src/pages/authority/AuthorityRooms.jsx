@@ -15,7 +15,7 @@ export const formatFloorName = (floorNum) => {
 };
 
 export default function AuthorityRooms() {
-  const { rooms, createRoom, updateRoom, deleteRoom } = useComplaints();
+  const { rooms, createRoom, updateRoom, deleteRoom, reload } = useComplaints();
   const { showToast } = useToast();
 
   const [newRoomNumber, setNewRoomNumber] = useState('');
@@ -26,7 +26,18 @@ export default function AuthorityRooms() {
   const [managers, setManagers] = useState([]);
   const [mgrName, setMgrName] = useState('');
   const [mgrEmail, setMgrEmail] = useState('');
+  const [numRooms, setNumRooms] = useState('5');
   const [creatingFloorManager, setCreatingFloorManager] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  const fetchHistory = async () => {
+    try {
+      const data = await apiService.getFloorManagerHistory();
+      setHistory(data);
+    } catch (err) {
+      console.error('Failed to load history', err);
+    }
+  };
 
   const [editingId, setEditingId] = useState(null);
   const [editingNumber, setEditingNumber] = useState('');
@@ -46,6 +57,7 @@ export default function AuthorityRooms() {
 
   useEffect(() => {
     fetchManagersList();
+    fetchHistory();
   }, []);
 
   // Compute unique floors list strictly from assigned floor managers
@@ -82,15 +94,23 @@ export default function AuthorityRooms() {
       showToast('Email must end with @xyzcompany.com');
       return;
     }
+    const val = parseInt(numRooms, 10);
+    if (isNaN(val) || val < 1 || val > 20) {
+      showToast('Number of rooms must be between 1 and 20');
+      return;
+    }
 
     setCreatingFloorManager(true);
     try {
-      const res = await apiService.createFloorManager(mgrName.trim(), mgrEmail.trim().toLowerCase());
-      showToast(`Floor ${formatFloorName(res.floorNumber)} created! Assigned Manager ID: ${res.managerId}`);
+      const res = await apiService.createFloorManager(mgrName.trim(), mgrEmail.trim().toLowerCase(), val);
+      showToast(`Floor ${formatFloorName(res.floorNumber)} created with ${val} rooms! Assigned Manager ID: ${res.managerId}`);
       await fetchManagersList();
+      await fetchHistory();
+      if (reload) await reload();
       setSelectedFloor(String(res.floorNumber));
       setMgrName('');
       setMgrEmail('');
+      setNumRooms('5');
       setShowAddFloorInput(false);
     } catch (err) {
       showToast(err.message || 'Failed to create floor manager');
@@ -116,6 +136,16 @@ export default function AuthorityRooms() {
     if (duplicate) {
       showToast('Room number already exists');
       return;
+    }
+
+    // Find the floor manager's room limit
+    const mgr = managers.find(m => String(m.floor_number) === String(selectedFloor));
+    if (mgr && mgr.room_limit > 0) {
+      const currentRoomsOnFloor = rooms.filter(r => String(r.floor_number) === String(selectedFloor)).length;
+      if (currentRoomsOnFloor >= mgr.room_limit) {
+        showToast(`Cannot create room: Limit of ${mgr.room_limit} rooms reached for this floor.`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -272,7 +302,7 @@ export default function AuthorityRooms() {
               </div>
 
               <form onSubmit={handleCreateFloorManager} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                       Floor Manager Name *
@@ -300,6 +330,22 @@ export default function AuthorityRooms() {
                       onChange={(e) => setMgrEmail(e.target.value)}
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      Number of Rooms (Max: 20) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="20"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-medium"
+                      placeholder="e.g. 5"
+                      value={numRooms}
+                      onChange={(e) => setNumRooms(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="text-xs text-slate-300 bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center gap-2">
@@ -313,6 +359,7 @@ export default function AuthorityRooms() {
                       setShowAddFloorInput(false);
                       setMgrName('');
                       setMgrEmail('');
+                      setNumRooms('5');
                     }}
                     className="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-300 transition"
                   >
@@ -353,104 +400,132 @@ export default function AuthorityRooms() {
           </div>
         ) : (
           <div className="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
-            {filteredRooms.map((room) => {
-              const isEditing = editingId === room.id;
-              const isConfirmingDelete = deletingId === room.id;
+            {(() => {
+              // Sort the unique floors in ascending order
+              const uniqueFloors = Array.from(new Set(filteredRooms.map(r => String(r.floor_number)))).sort((a, b) => {
+                const numA = parseInt(a, 10);
+                const numB = parseInt(b, 10);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.localeCompare(b);
+              });
 
+              return uniqueFloors.map(floorNum => {
+                const floorRooms = filteredRooms
+                  .filter(r => String(r.floor_number) === String(floorNum))
+                  .sort((a, b) => (a.id || 0) - (b.id || 0)); // created order (id ASC)
+
+                const mgr = managers.find(m => String(m.floor_number) === String(floorNum));
+
+                return (
+                  <div key={floorNum} className="p-5">
+                    <h4 className="text-sm font-black text-indigo-400 mb-3 flex items-center justify-between">
+                      <span>🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}</span>
+                      <span className="text-xs text-slate-500 font-normal">{floorRooms.length} rooms</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {floorRooms.map(room => {
+                        const isEditing = editingId === room.id;
+                        const isConfirmingDelete = deletingId === room.id;
+                        return (
+                          <div key={room.id} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1.5 w-full">
+                                <input
+                                  type="text"
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white"
+                                  value={editingNumber}
+                                  onChange={(e) => setEditingNumber(e.target.value)}
+                                  autoFocus
+                                />
+                                <button className="text-emerald-400 text-xs font-bold" onClick={() => handleSaveEdit(room.id)}>Save</button>
+                                <button className="text-slate-400 text-xs font-bold" onClick={() => setEditingId(null)}>Cancel</button>
+                              </div>
+                            ) : isConfirmingDelete ? (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs text-rose-400 font-semibold">Delete Room {room.room_number}?</span>
+                                <div className="flex gap-2">
+                                  <button className="text-rose-500 text-xs font-black" onClick={() => handleDeleteRoom(room.id, room.room_number)}>Yes</button>
+                                  <button className="text-slate-400 text-xs font-semibold" onClick={() => setDeletingId(null)}>No</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div>
+                                  <span className="text-sm font-bold text-white">Room {room.room_number}</span>
+                                  <div className="text-[9px] text-slate-500 mt-0.5">ID: {room.id} | {new Date(room.created_at || room.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button className="text-indigo-400 hover:text-indigo-300 text-xs font-bold" onClick={() => handleStartEdit(room)}>Edit</button>
+                                  <button className="text-rose-500 hover:text-rose-400 text-xs font-bold" onClick={() => setDeletingId(room.id)}>Delete</button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* Floor & Room History Section */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl overflow-hidden backdrop-blur-md">
+        <div className="border-b border-slate-800 bg-slate-950/80 p-4">
+          <h3 className="font-extrabold text-white text-base">
+            Floor Manager & Room History
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">Audit log of creation and deletion of floors, manager credentials, and allocated rooms.</p>
+        </div>
+
+        {history.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 font-medium">
+            <p className="text-sm">No floor history recorded yet.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800/60 max-h-[400px] overflow-y-auto">
+            {history.map((item) => {
+              const roomsList = Array.isArray(item.rooms_details) ? item.rooms_details : JSON.parse(item.rooms_details || '[]');
               return (
-                <div
-                  key={room.id}
-                  className="flex items-center justify-between p-4 hover:bg-slate-800/40 transition-colors"
-                >
-                  <div className="flex-1 pr-4">
-                    {isEditing ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="text"
-                          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white w-32 focus:outline-none focus:border-indigo-500"
-                          value={editingNumber}
-                          onChange={(e) => setEditingNumber(e.target.value)}
-                          autoFocus
-                          placeholder="Room Number"
-                        />
-                        <select
-                          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                          value={editingFloor}
-                          onChange={(e) => setEditingFloor(e.target.value)}
-                        >
-                          {allFloors.map(f => (
-                            <option key={f} value={f}>{formatFloorName(f)}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="font-bold text-white text-base">
-                          Room {room.room_number}
-                        </span>
-                        <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-500/30 px-3 py-0.5 rounded-full font-bold">
-                          {formatFloorName(room.floor_number)}
-                        </span>
-                        <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
-                          ID: {room.id}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-[11px] text-slate-400 mt-1">
-                      Created: {new Date(room.created_at || room.createdAt).toLocaleString()}
+                <div key={item.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-800/20">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.action === 'created' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                        {item.action.toUpperCase()}
+                      </span>
+                      <span className="font-bold text-sm text-white">
+                        Floor {item.floor_number} ({formatFloorName(item.floor_number)})
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      Manager: <span className="text-white font-medium">{item.manager_name}</span> ({item.manager_email})
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1">
+                      Time: {new Date(item.created_at).toLocaleString()}
                     </div>
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-2">
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={() => handleSaveEdit(room.id)}
-                          disabled={!editingNumber.trim()}
-                          className="rounded bg-teal-600 hover:bg-teal-700 px-3 py-1 text-xs font-medium text-white transition disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="rounded border border-slate-300 hover:bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : isConfirmingDelete ? (
-                      <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded p-1.5">
-                        <span className="text-xs text-red-700 font-medium px-1">Are you sure?</span>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                          className="rounded bg-red-600 hover:bg-red-700 px-2.5 py-0.5 text-xs font-semibold text-white transition"
-                        >
-                          Yes, Delete
-                        </button>
-                        <button
-                          onClick={() => setDeletingId(null)}
-                          className="rounded bg-slate-200 hover:bg-slate-300 px-2 py-0.5 text-xs font-medium text-slate-700 transition"
-                        >
-                          No
-                        </button>
+                  <div className="w-full md:w-auto min-w-[200px]">
+                    {/* Collapsible/Dropdown for Rooms details */}
+                    <div className="text-xs bg-slate-950/60 border border-slate-800/85 rounded-xl p-2">
+                      <div className="font-bold text-slate-400 mb-1 flex justify-between">
+                        <span>Rooms Allocated ({roomsList.length}):</span>
                       </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleStartEdit(room)}
-                          className="rounded border border-slate-300 hover:bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 transition"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setDeletingId(room.id)}
-                          className="rounded border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1 text-xs font-medium transition"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
+                      {roomsList.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {roomsList.map((rm, idx) => (
+                            <span key={idx} className="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded">
+                              {rm}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 italic">None</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
