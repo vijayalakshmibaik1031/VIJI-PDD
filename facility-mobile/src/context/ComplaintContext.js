@@ -421,6 +421,20 @@ export const ComplaintProvider = ({ children }) => {
     }
   };
 
+  const updateFloorLimit = async (floorNumber, newLimit, roomIdsToDelete) => {
+    try {
+      const data = await apiCall('/managers/floor-limit', {
+        method: 'PUT',
+        body: JSON.stringify({ floor_number: floorNumber, new_limit: newLimit, room_ids_to_delete: roomIdsToDelete }),
+      }, token);
+      await fetchManagers();
+      await fetchRooms();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const updateManager = async (id, name, email) => {
     try {
       const data = await apiCall(`/managers/${id}`, {
@@ -548,6 +562,7 @@ export const ComplaintProvider = ({ children }) => {
         createManager,
         createFloorManager,
         fetchFloorManagerHistory,
+        updateFloorLimit,
         updateManager,
         deleteManager,
         resetFirstPassword,

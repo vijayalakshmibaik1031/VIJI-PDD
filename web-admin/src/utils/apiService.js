@@ -262,6 +262,13 @@ export const apiService = {
     return apiFetch(`${API_URL}/floor-manager-history`, { headers: authHeaders() });
   },
 
+  updateFloorLimit: (floorNumber, newLimit, roomIdsToDelete) =>
+    apiFetch(`${API_URL}/managers/floor-limit`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ floor_number: floorNumber, new_limit: newLimit, room_ids_to_delete: roomIdsToDelete }),
+    }),
+
   createManager: (id, name, email) =>
     apiFetch(`${API_URL}/managers`, {
       method: 'POST',

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, TextInput, Alert, ScrollView, Modal } from 'react-native';
 import { CustomHeader } from '../../components/CustomHeader';
 import { useComplaints } from '../../context/ComplaintContext';
 
@@ -15,7 +15,7 @@ function formatFloorName(floorNum) {
 }
 
 export const AuthorityRoomsScreen = () => {
-  const { rooms, managers, fetchRooms, fetchManagers, createRoom, updateRoom, deleteRoom, createFloorManager, fetchFloorManagerHistory, loading } = useComplaints();
+  const { rooms, managers, fetchRooms, fetchManagers, createRoom, updateRoom, deleteRoom, createFloorManager, fetchFloorManagerHistory, updateFloorLimit, loading } = useComplaints();
 
   const [newRoomNumber, setNewRoomNumber] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
@@ -32,10 +32,37 @@ export const AuthorityRoomsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [editingLimitFloor, setEditingLimitFloor] = useState(null);
+  const [newLimitValue, setNewLimitValue] = useState('');
+  const [selectedRoomIdsToDelete, setSelectedRoomIdsToDelete] = useState([]);
+  const [savingLimit, setSavingLimit] = useState(false);
+
   const loadHistory = async () => {
     if (fetchFloorManagerHistory) {
       const data = await fetchFloorManagerHistory();
       setHistory(data || []);
+    }
+  };
+
+  const handleSaveFloorLimit = async () => {
+    const val = parseInt(newLimitValue, 10);
+    if (isNaN(val) || val < 1 || val > 20) {
+      Alert.alert('Validation Error', 'New room limit must be between 1 and 20');
+      return;
+    }
+
+    setSavingLimit(true);
+    try {
+      if (updateFloorLimit) {
+        await updateFloorLimit(editingLimitFloor, val, selectedRoomIdsToDelete);
+      }
+      Alert.alert('Success', 'Floor room limit updated successfully.');
+      setEditingLimitFloor(null);
+      loadHistory();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to update floor limit');
+    } finally {
+      setSavingLimit(false);
     }
   };
 
@@ -349,10 +376,24 @@ export const AuthorityRoomsScreen = () => {
 
             return (
               <View key={floorNum} style={{ marginBottom: 16 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
-                  <Text style={{ color: '#818CF8', fontSize: 13, fontWeight: '800' }}>
-                    🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}
-                  </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4, flexWrap: 'wrap', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={{ color: '#818CF8', fontSize: 13, fontWeight: '800' }}>
+                      🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}
+                    </Text>
+                    <View style={{ backgroundColor: '#1E293B', borderWidth: 1, borderColor: '#334155', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Limit: {mgr ? mgr.room_limit : 5}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditingLimitFloor(floorNum);
+                        setNewLimitValue(String(mgr ? mgr.room_limit : 5));
+                        setSelectedRoomIdsToDelete([]);
+                      }}
+                    >
+                      <Text style={{ color: '#6366F1', fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' }}>Edit Limit</Text>
+                    </TouchableOpacity>
+                  </View>
                   <Text style={{ color: '#64748B', fontSize: 11 }}>{floorRooms.length} rooms</Text>
                 </View>
 
@@ -465,6 +506,101 @@ export const AuthorityRoomsScreen = () => {
           })
         )}
       </ScrollView>
+
+      {/* Edit Limit Modal */}
+      <Modal visible={Boolean(editingLimitFloor)} transparent animationType="slide">
+        {(() => {
+          const mgr = (managers || []).find(m => String(m.floor_number) === String(editingLimitFloor));
+          const floorRooms = (rooms || []).filter(r => String(r.floor_number) === String(editingLimitFloor)).sort((a,b) => (a.id || 0) - (b.id || 0));
+          const currentLimit = mgr ? (mgr.room_limit || 0) : 5;
+          const currentCount = floorRooms.length;
+
+          const targetLimit = parseInt(newLimitValue, 10) || 0;
+          const excessCount = currentCount - targetLimit;
+          const isDecrease = excessCount > 0;
+
+          return (
+            <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.85)', justifyContent: 'center', padding: 20 }}>
+              <View style={{ backgroundColor: '#1E293B', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#334155' }}>
+                <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
+                  Edit Room Limit for {formatFloorName(editingLimitFloor)}
+                </Text>
+                <Text style={{ color: '#94A3B8', fontSize: 12, marginBottom: 16 }}>
+                  Current Limit: {currentLimit} | Active Rooms: {currentCount}
+                </Text>
+
+                <Text style={styles.label}>New Room Limit</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  value={newLimitValue}
+                  onChangeText={(text) => {
+                    setNewLimitValue(text);
+                    const limitVal = parseInt(text, 10) || 0;
+                    const reqCount = currentCount - limitVal;
+                    if (reqCount > 0) {
+                      const latestRooms = [...floorRooms].reverse().slice(0, reqCount);
+                      setSelectedRoomIdsToDelete(latestRooms.map(r => r.id));
+                    } else {
+                      setSelectedRoomIdsToDelete([]);
+                    }
+                  }}
+                />
+
+                {isDecrease && (
+                  <View style={{ backgroundColor: 'rgba(220, 38, 38, 0.1)', borderWidth: 1, borderColor: 'rgba(220, 38, 38, 0.2)', padding: 12, borderRadius: 10, marginVertical: 12 }}>
+                    <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700', marginBottom: 4 }}>
+                      ⚠️ Decreasing limit below active count
+                    </Text>
+                    <Text style={{ color: '#CBD5E1', fontSize: 11, marginBottom: 8 }}>
+                      You must select exactly {excessCount} room(s) to delete:
+                    </Text>
+
+                    <ScrollView style={{ maxHeight: 120 }}>
+                      {floorRooms.map(r => {
+                        const isChecked = selectedRoomIdsToDelete.includes(r.id);
+                        return (
+                          <TouchableOpacity
+                            key={r.id}
+                            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#334155' }}
+                            onPress={() => {
+                              let updated = [...selectedRoomIdsToDelete];
+                              if (isChecked) {
+                                updated = updated.filter(id => id !== r.id);
+                              } else {
+                                updated.push(r.id);
+                              }
+                              setSelectedRoomIdsToDelete(updated);
+                            }}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Room {r.room_number}</Text>
+                            <Text style={{ color: isChecked ? '#6366F1' : '#64748B', fontSize: 14, fontWeight: '900' }}>
+                              {isChecked ? '☑️' : '⬜'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                <View style={[styles.rowRight, { marginTop: 16 }]}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingLimitFloor(null)}>
+                    <Text style={styles.btnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallAddBtn, (targetLimit < 1 || targetLimit > 20 || (isDecrease && selectedRoomIdsToDelete.length !== excessCount)) && styles.disabledBtn]}
+                    onPress={handleSaveFloorLimit}
+                    disabled={targetLimit < 1 || targetLimit > 20 || (isDecrease && selectedRoomIdsToDelete.length !== excessCount)}
+                  >
+                    <Text style={styles.smallAddBtnText}>Save Limit</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+      </Modal>
     </View>
   );
 };

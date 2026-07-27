@@ -30,6 +30,10 @@ export default function AuthorityRooms() {
   const [creatingFloorManager, setCreatingFloorManager] = useState(false);
   const [history, setHistory] = useState([]);
 
+  const [editingLimitFloor, setEditingLimitFloor] = useState(null);
+  const [newLimitValue, setNewLimitValue] = useState('');
+  const [selectedRoomIdsToDelete, setSelectedRoomIdsToDelete] = useState([]);
+
   const fetchHistory = async () => {
     try {
       const data = await apiService.getFloorManagerHistory();
@@ -43,6 +47,25 @@ export default function AuthorityRooms() {
   const [editingNumber, setEditingNumber] = useState('');
   const [editingFloor, setEditingFloor] = useState('0');
   const [deletingId, setDeletingId] = useState(null);
+
+  const handleSaveFloorLimit = async () => {
+    const val = parseInt(newLimitValue, 10);
+    if (isNaN(val) || val < 1 || val > 20) {
+      showToast('New room limit must be between 1 and 20');
+      return;
+    }
+
+    try {
+      await apiService.updateFloorLimit(editingLimitFloor, val, selectedRoomIdsToDelete);
+      showToast(`Floor limit updated successfully`);
+      setEditingLimitFloor(null);
+      await fetchManagersList();
+      await fetchHistory();
+      if (reload) await reload();
+    } catch (err) {
+      showToast(err.message || 'Failed to update floor limit');
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -419,7 +442,20 @@ export default function AuthorityRooms() {
                 return (
                   <div key={floorNum} className="p-5">
                     <h4 className="text-sm font-black text-indigo-400 mb-3 flex items-center justify-between">
-                      <span>🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}</span>
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <span>🏢 {formatFloorName(floorNum)} {mgr ? `(${mgr.name})` : ''}</span>
+                        <span className="text-xs text-slate-500 font-normal bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Limit: {mgr ? mgr.room_limit : 5}</span>
+                        <button
+                          onClick={() => {
+                            setEditingLimitFloor(floorNum);
+                            setNewLimitValue(String(mgr ? mgr.room_limit : 5));
+                            setSelectedRoomIdsToDelete([]);
+                          }}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-black hover:underline"
+                        >
+                          Edit Limit
+                        </button>
+                      </span>
                       <span className="text-xs text-slate-500 font-normal">{floorRooms.length} rooms</span>
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -533,6 +569,113 @@ export default function AuthorityRooms() {
           </div>
         )}
       </div>
+
+      {editingLimitFloor && (() => {
+        const mgr = managers.find(m => String(m.floor_number) === String(editingLimitFloor));
+        const floorRooms = rooms.filter(r => String(r.floor_number) === String(editingLimitFloor)).sort((a,b) => (a.id || 0) - (b.id || 0));
+        const currentLimit = mgr ? (mgr.room_limit || 0) : 5;
+        const currentCount = floorRooms.length;
+
+        const targetLimit = parseInt(newLimitValue, 10) || 0;
+        const excessCount = currentCount - targetLimit;
+        const isDecrease = excessCount > 0;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+              <h3 className="text-lg font-black text-white mb-2">
+                Edit Room Limit for {formatFloorName(editingLimitFloor)}
+              </h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Current Limit: <span className="text-indigo-400 font-bold">{currentLimit}</span> | Active Rooms: <span className="text-emerald-400 font-bold">{currentCount}</span>
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 font-sans">New Room Limit</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-850 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium"
+                    value={newLimitValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewLimitValue(val);
+                      const limitVal = parseInt(val, 10) || 0;
+                      const reqCount = currentCount - limitVal;
+                      if (reqCount > 0) {
+                        // Pre-select latest created rooms by default
+                        const latestRooms = [...floorRooms].reverse().slice(0, reqCount);
+                        setSelectedRoomIdsToDelete(latestRooms.map(r => r.id));
+                      } else {
+                        setSelectedRoomIdsToDelete([]);
+                      }
+                    }}
+                  />
+                </div>
+
+                {isDecrease && (
+                  <div className="bg-rose-950/20 border border-rose-900/50 rounded-xl p-3.5 space-y-2">
+                    <div className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                      ⚠️ Decreasing limit below active count
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      You must select exactly <span className="font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">{excessCount}</span> room(s) to delete to accommodate the new limit.
+                    </p>
+
+                    <div className="max-h-[160px] overflow-y-auto space-y-1.5 mt-2 bg-slate-950/40 p-2 rounded-lg border border-slate-800/80">
+                      {floorRooms.map(r => {
+                        const isChecked = selectedRoomIdsToDelete.includes(r.id);
+                        return (
+                          <label key={r.id} className="flex items-center justify-between p-2 rounded hover:bg-slate-800/40 cursor-pointer text-xs">
+                            <span className="text-white font-bold">Room {r.room_number}</span>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                let updated = [...selectedRoomIdsToDelete];
+                                if (isChecked) {
+                                  updated = updated.filter(id => id !== r.id);
+                                } else {
+                                  updated.push(r.id);
+                                }
+                                setSelectedRoomIdsToDelete(updated);
+                              }}
+                              className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {selectedRoomIdsToDelete.length !== excessCount && (
+                      <p className="text-[10px] text-amber-400 font-semibold mt-1">
+                        Please select exactly {excessCount} rooms (Currently selected: {selectedRoomIdsToDelete.length})
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-end mt-6">
+                <button
+                  onClick={() => setEditingLimitFloor(null)}
+                  className="rounded-xl border border-slate-700 bg-slate-850 hover:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveFloorLimit}
+                  disabled={targetLimit < 1 || targetLimit > 20 || (isDecrease && selectedRoomIdsToDelete.length !== excessCount)}
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-xs font-bold text-white transition disabled:opacity-50"
+                >
+                  Save Limit
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

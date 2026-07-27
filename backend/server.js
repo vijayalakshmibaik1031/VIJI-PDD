@@ -928,6 +928,51 @@ app.get("/api/floor-manager-history", requireAuth, async (req, res) => {
   }
 });
 
+app.put("/api/managers/floor-limit", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "authority") {
+      return res.status(403).json({ error: "Forbidden: Authority role required" });
+    }
+
+    const { floor_number, new_limit, room_ids_to_delete } = req.body;
+    if (floor_number === undefined || new_limit === undefined) {
+      return res.status(400).json({ error: "Missing floor_number or new_limit" });
+    }
+
+    const floorStr = String(floor_number);
+    const limitVal = parseInt(new_limit, 10);
+
+    // Update the limit in managers table
+    await pool.query("UPDATE managers SET room_limit = $1 WHERE floor_number = $2", [limitVal, floorStr]);
+
+    // Handle room deletions if any specified
+    let deletedRoomNumbers = [];
+    if (Array.isArray(room_ids_to_delete) && room_ids_to_delete.length > 0) {
+      // Get the numbers first for logging
+      const roomsRes = await pool.query("SELECT room_number FROM rooms WHERE id = ANY($1::int[])", [room_ids_to_delete]);
+      deletedRoomNumbers = roomsRes.rows.map(r => r.room_number);
+
+      // Perform deletion
+      await pool.query("DELETE FROM rooms WHERE id = ANY($1::int[])", [room_ids_to_delete]);
+
+      // Log to floor manager history
+      const mgrRes = await pool.query("SELECT name, email FROM managers WHERE floor_number = $1", [floorStr]);
+      if (mgrRes.rows.length > 0) {
+        const manager = mgrRes.rows[0];
+        await pool.query(
+          "INSERT INTO floor_manager_history (floor_number, manager_name, manager_email, rooms_details, action) VALUES ($1, $2, $3, $4, 'deleted')",
+          [floorStr, manager.name, manager.email, JSON.stringify(deletedRoomNumbers)]
+        );
+      }
+    }
+
+    res.json({ message: "Floor room limit updated successfully", deletedRooms: deletedRoomNumbers });
+  } catch (err) {
+    console.error("Floor limit update error:", err.message);
+    res.status(500).json({ error: "Failed to update floor limit", details: err.message });
+  }
+});
+
 // POST /api/managers/floor-manager (Authority only)
 app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
   try {
@@ -1004,18 +1049,8 @@ app.post("/api/managers/floor-manager", requireAuth, async (req, res) => {
       [managerId, normalizedName, normalizedEmail, hashedPassword, defaultPassword, nextFloorStr, roomsToCreate]
     );
 
-    // Auto-create rooms
+    // Auto-create rooms (Removed per user request - user will add manually)
     const createdRooms = [];
-    if (roomsToCreate > 0) {
-      for (let i = 1; i <= roomsToCreate; i++) {
-        const roomNum = `${nextFloorStr}${String(i).padStart(2, '0')}`;
-        await pool.query(
-          "INSERT INTO rooms (room_number, floor_number) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-          [roomNum, nextFloorStr]
-        );
-        createdRooms.push(roomNum);
-      }
-    }
 
     // Insert history record
     await pool.query(
