@@ -360,7 +360,7 @@ export const AuthorityRoomsScreen = () => {
 
         {(() => {
           // Sort unique floors ascending
-          const uniqueFloors = Array.from(new Set(xe.map(r => String(r.floor_number)))).sort((a, b) => {
+          const uniqueFloors = Array.from(new Set(filteredRooms.map(r => String(r.floor_number)))).sort((a, b) => {
             const numA = parseInt(a, 10);
             const numB = parseInt(b, 10);
             if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -368,7 +368,7 @@ export const AuthorityRoomsScreen = () => {
           });
 
           return uniqueFloors.map(floorNum => {
-            const floorRooms = xe
+            const floorRooms = filteredRooms
               .filter(r => String(r.floor_number) === String(floorNum))
               .sort((a, b) => (a.id || 0) - (b.id || 0)); // created order (id ASC)
 
@@ -446,7 +446,7 @@ export const AuthorityRoomsScreen = () => {
                             >
                               <Text style={styles.btnText}>Edit</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.deleteBtn} onPress={() => he(room)}>
+                            <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(room)}>
                               <Text style={styles.btnText}>Delete</Text>
                             </TouchableOpacity>
                           </View>
