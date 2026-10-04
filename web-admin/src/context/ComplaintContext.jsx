@@ -3,15 +3,6 @@ import { STATUS, VISIBILITY } from '../utils/facility';
 import { apiService } from '../utils/apiService';
 import { useAuth } from './AuthContext';
 
-const DEFAULT_ROOMS = Array.from({ length: 5 }, (_, floor) =>
-  Array.from({ length: 5 }, (_, room) => ({
-    id: `default-${floor + 1}${room + 1}`,
-    room_number: `${floor + 1}${room + 1}`,
-    floor_number: `${floor + 1}`,
-    created_at: new Date().toISOString()
-  }))
-).flat();
-
 const ComplaintContext = createContext({
   complaints: [],
   mergedGroups: [],
