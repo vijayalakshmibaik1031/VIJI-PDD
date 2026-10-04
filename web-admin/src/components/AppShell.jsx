@@ -309,7 +309,10 @@ function EmployeeSetupCredentials({ logout }) {
 }
 
 function AlertSystemComponent() {
-  const { activeAlerts, createAlert, resolveAlert } = useComplaints();
+  const complaintsCtx = useComplaints() || {};
+  const activeAlerts = Array.isArray(complaintsCtx.activeAlerts) ? complaintsCtx.activeAlerts : [];
+  const createAlert = complaintsCtx.createAlert || (async () => {});
+  const resolveAlert = complaintsCtx.resolveAlert || (async () => {});
   const { session } = useAuth();
   const [acknowledgedIds, setAcknowledgedIds] = useState(() => {
     try {
@@ -387,8 +390,8 @@ function AlertSystemComponent() {
     if (!session) return false;
     const isAuthority = session.role === 'authority';
     const isManager = session.role === 'manager';
-    const isCreator = alert.created_by.toLowerCase() === session.userId.toLowerCase();
-    return isAuthority || isManager || isCreator;
+    const isCreator = alert && alert.created_by && session && session.userId && alert.created_by.toLowerCase() === session.userId.toLowerCase();
+    return Boolean(isAuthority || isManager || isCreator);
   };
 
   return (
