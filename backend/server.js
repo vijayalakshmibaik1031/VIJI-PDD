@@ -380,23 +380,9 @@ async function initializeDatabase() {
     await pool.query(`ALTER TABLE rooms ADD COLUMN IF NOT EXISTS floor_number VARCHAR(50) NOT NULL DEFAULT '1'`).catch(() => {});
     console.log("✓ rooms table ready");
 
-    // Seed default rooms if empty
-    const roomCheck = await pool.query("SELECT COUNT(*) FROM rooms");
-    if (parseInt(roomCheck.rows[0].count, 10) === 0) {
-      const defaultRooms = Array.from({ length: 5 }, (_, floor) =>
-        Array.from({ length: 5 }, (_, room) => ({
-          room_number: `${floor + 1}${room + 1}`,
-          floor_number: `${floor + 1}`
-        }))
-      ).flat();
-      for (const r of defaultRooms) {
-        await pool.query(
-          "INSERT INTO rooms (room_number, floor_number) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-          [r.room_number, r.floor_number]
-        );
-      }
-      console.log("✓ Seeded default rooms");
-    }
+    // Rooms are intentionally not seeded here. Authorities create floors and rooms
+    // from the dashboard, so an empty database must remain empty and report zero
+    // active rooms until real rooms are added.
 
     // Create alerts table
     await pool.query(`
