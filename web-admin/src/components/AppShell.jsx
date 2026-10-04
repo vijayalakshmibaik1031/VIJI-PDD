@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useComplaints } from '../context/ComplaintContext';
 import SwipeToRefresh from './SwipeToRefresh';
 
 // Lucide icons used for bottom nav tabs
