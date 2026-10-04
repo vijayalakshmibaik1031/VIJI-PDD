@@ -1,5 +1,5 @@
 // Facility Mobile - API Configuration connecting to Railway Production Backend
-export const BASE_URL = 'https://viji-pdd-production-7c95.up.railway.app/api';
+export const BASE_URL = 'https://viji-pdd-production-b78a.up.railway.app/api';
 
 export const apiCall = async (endpoint, options = {}, token = null) => {
   const headers = {

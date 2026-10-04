@@ -25,7 +25,7 @@ const mailTransporter = nodemailer.createTransport({
 
 // Helper function to send email
 async function sendVerificationEmail(userEmail, token) {
-  const verificationLink = `https://viji-pdd-production-7c95.up.railway.app/api/verify-email?token=${token}`;
+  const verificationLink = `https://viji-pdd-production-b78a.up.railway.app/api/verify-email?token=${token}`;
   const mailOptions = {
     from: `"FacilityVoice" <vijayalakshmibai0686@gmail.com>`,
     to: userEmail,

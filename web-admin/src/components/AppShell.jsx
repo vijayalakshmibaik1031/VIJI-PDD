@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useComplaints } from '../context/ComplaintContext';
-import { Capacitor } from '@capacitor/core';
 import SwipeToRefresh from './SwipeToRefresh';
 
 // Lucide icons used for bottom nav tabs
@@ -20,8 +18,6 @@ import {
   AlertTriangle,
   LogOut,
 } from 'lucide-react';
-
-const isNative = Capacitor.isNativePlatform();
 
 // Map route paths to a lucide icon component.
 // Falls back to rendering the text label if the icon is not found.
@@ -148,76 +144,7 @@ function WebLayout({ title, links, session, logout }) {
   );
 }
 
-// ─── Native (Capacitor) bottom-nav layout ─────────────────────────────────────
-function NativeLayout({ title, links, session, logout }) {
-  const location = useLocation();
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-white app-dark-theme">
-      {/* Top header bar */}
-      <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-3 shadow-sm">
-        <div>
-          <p className="text-lg font-bold text-white leading-tight">FacilityVoice</p>
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-300 font-semibold">{session?.name}</span>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-xl bg-rose-600/85 hover:bg-rose-600 px-3.5 py-2 text-xs text-white font-semibold transition"
-            onClick={logout}
-            aria-label="Logout"
-            data-testid="logoutButton"
-          >
-            <LogOut size={13} />
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {/* Scrollable page content — padded so it never hides behind the bottom nav */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
-        <Outlet />
-      </main>
-
-      {/* Fixed bottom navigation */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-slate-800 bg-slate-900/90 text-slate-400"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        aria-label="Bottom navigation"
-      >
-        {links.map((link) => {
-          const active = location.pathname === link.to;
-          return (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-center transition-colors ${
-                active
-                  ? 'text-indigo-400 font-medium'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              aria-current={active ? 'page' : undefined}
-            >
-              {/* Active indicator dot */}
-              {active && (
-                <span className="absolute top-0 h-0.5 w-8 rounded-full bg-indigo-400" />
-              )}
-              <NavIcon to={link.to} label={link.label} />
-              {/* Short label — truncate long names */}
-              <span
-                className="w-full truncate px-0.5 text-center"
-                style={{ fontSize: '9px', lineHeight: '1.2' }}
-              >
-                {link.label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
-  );
-}
 
 // ─── AppShell — picks the right layout based on platform ──────────────────────
 export default function AppShell({ title, links }) {

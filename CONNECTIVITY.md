@@ -19,7 +19,7 @@ Use local backend + local frontend.
 ### 1. Backend `.env` (already set)
 
 ```env
-DATABASE_PUBLIC_URL=postgresql://...@acela.proxy.rlwy.net:55068/railway
+DATABASE_PUBLIC_URL=postgresql://postgres:<PASSWORD>@maglev.proxy.rlwy.net:12272/railway
 PORT=5000
 HOST=0.0.0.0
 ```
