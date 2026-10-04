@@ -146,7 +146,7 @@ function WebLayout({ title, links, session, logout }) {
 
 
 
-// ─── AppShell — picks the right layout based on platform ──────────────────────
+// ─── AppShell — main layout wrapper ─────────────────────────────────────────
 export default function AppShell({ title, links }) {
   const { logout, session } = useAuth();
 
@@ -154,17 +154,10 @@ export default function AppShell({ title, links }) {
     return <EmployeeSetupCredentials logout={logout} />;
   }
 
-  const renderContent = () => {
-    if (isNative) {
-      return <NativeLayout title={title} links={links} session={session} logout={logout} />;
-    }
-    return <WebLayout title={title} links={links} session={session} logout={logout} />;
-  };
-
   return (
     <>
       {session && <AlertSystemComponent />}
-      {renderContent()}
+      <WebLayout title={title} links={links} session={session} logout={logout} />
     </>
   );
 }
