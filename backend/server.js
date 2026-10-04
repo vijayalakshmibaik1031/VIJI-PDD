@@ -416,6 +416,16 @@ async function initializeDatabase() {
     `);
     console.log("✓ floor_manager_history table ready");
 
+    // Remove legacy auto-seeded rooms only when no floor has ever been created.
+    // This preserves rooms created through the authority workflow.
+    const historyCheck = await pool.query('SELECT COUNT(*) FROM floor_manager_history');
+    if (parseInt(historyCheck.rows[0].count, 10) === 0) {
+      const removed = await pool.query('DELETE FROM rooms RETURNING id');
+      if (removed.rowCount > 0) {
+        console.log(`✓ Removed ${removed.rowCount} legacy default rooms`);
+      }
+    }
+
     console.log("Database initialization complete!");
 
     // Seed/migrate manager and authority accounts with hashed passwords
